@@ -2,9 +2,12 @@ package smtp
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
+	"net"
 
+	"blitiri.com.ar/go/spf"
 	"github.com/emersion/go-smtp"
 )
 
@@ -84,6 +87,19 @@ func (s *Server) newInboundSession(state *smtp.ConnectionState) *InboundSession 
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
+	// spf check
+	result, err := spf.CheckHostWithSender(
+		s.State.RemoteAddr.(*net.IPAddr).IP,
+		s.State.Hostname,
+		from,
+	)
+	if err != nil {
+		return err
+	}
+
+	if result == spf.Fail {
+		return errors.New("Not allowed to send using this domain")
+	}
 	// do we want to provide dbl checks here, i.e. spamhaus?
 	s.From = from
 	return nil

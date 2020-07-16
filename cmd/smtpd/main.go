@@ -30,7 +30,11 @@ func run() error {
 	}
 	defer db.Close(ctx)
 
+	log.Println("DB Connected")
+
 	server := smtp.NewServer(makeAliasHandler(db), makeRelayHandler(db))
+
+	log.Println("Starting SMTP Server...")
 
 	if err := server.Run(os.Getenv("MXAX_DOMAIN")); err != nil {
 		return errors.WithMessage(err, "server.Run")

@@ -93,19 +93,18 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 	}
 
 	// spf check
-	result, err := spf.CheckHostWithSender(
+	result, _ := spf.CheckHostWithSender(
 		tcpAddr.IP,
 		s.State.Hostname,
 		from,
 	)
-	if err != nil {
-		return err
-	}
 
 	if result == spf.Fail {
 		return errors.New("Not allowed to send using this domain")
 	}
+
 	// do we want to provide dbl checks here, i.e. spamhaus?
+
 	s.From = from
 	return nil
 }

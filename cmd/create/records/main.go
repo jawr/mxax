@@ -49,7 +49,7 @@ func run() error {
 		return errors.WithMessage(err, "Get dkimKey")
 	}
 
-	fmt.Fprintln(os.Stdout, "@ 3600 IN MX 10 mx.pageup.uk")
+	fmt.Fprintln(os.Stdout, "@ 3600 IN MX 10 mx.pageup.uk.")
 	fmt.Fprintln(os.Stdout, `@ 3600 IN TXT "v=spf1 include:spf.pageup.uk -all"`)
 	fmt.Fprintf(os.Stdout, "default._domainkey 3600 IN TXT %s\n", dkimKey)
 

@@ -9,5 +9,6 @@ require (
 	github.com/jackc/pgtype v1.3.1-0.20200612023650-09efc3839047
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/jackc/pgx/v4 v4.6.1-0.20200606145419-4e5062306904
+	github.com/jhillyerd/enmime v0.8.1
 	github.com/pkg/errors v0.9.1
 )

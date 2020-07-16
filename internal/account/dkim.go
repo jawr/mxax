@@ -69,9 +69,36 @@ func NewDkimKey(domainID int) (*DkimKey, error) {
 	return &dkimKey, nil
 }
 
+func chunkString(s string, chunkSize int) []string {
+	var chunks []string
+	runes := []rune(s)
+
+	if len(runes) == 0 {
+		return []string{s}
+	}
+
+	for i := 0; i < len(runes); i += chunkSize {
+		nn := i + chunkSize
+		if nn > len(runes) {
+			nn = len(runes)
+		}
+		chunks = append(chunks, string(runes[i:nn]))
+	}
+	return chunks
+}
+
 func (dk DkimKey) String() string {
-	return fmt.Sprintf(
-		"v=DKIM1; k=rsa; p=%s",
-		string(dk.PublicKey),
-	)
+	parts := chunkString(string(dk.PublicKey), 100)
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	s := fmt.Sprintf(`"v=DKIM1; k=rsa; p=%s"`, parts[0])
+
+	for i := 1; i < len(parts); i++ {
+		s += fmt.Sprintf(` "%s"`, parts[i])
+	}
+
+	return s
 }

@@ -1,4 +1,6 @@
 *.log
+secrets.txt
+start.sh
 mxax
 
 

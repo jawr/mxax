@@ -87,9 +87,14 @@ func (s *Server) newInboundSession(state *smtp.ConnectionState) *InboundSession 
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
+	tcpAddr, ok := s.State.RemoteAddr.(*net.TCPAddr)
+	if !ok {
+		return errors.New("Unknown remoteAddr type")
+	}
+
 	// spf check
 	result, err := spf.CheckHostWithSender(
-		s.State.RemoteAddr.(*net.IPAddr).IP,
+		tcpAddr.IP,
 		s.State.Hostname,
 		from,
 	)

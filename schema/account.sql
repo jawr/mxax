@@ -45,6 +45,7 @@ CREATE TABLE alias_destinations (
 
 CREATE TABLE dkim_keys (
 	id SERIAL PRIMARY KEY,
+	domain_id INT NOT NULL REFERENCES domains(id),
 	private_key BYTEA NOT NULL,
 	public_key BYTEA NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

@@ -3,7 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"math/rand"
@@ -123,6 +127,24 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 		tls.VersionTLS13: "TLS1.3",
 	}
 
+	var privateKey []byte
+	if err := db.QueryRow("SELECT private_key FROM dkim_keys").Scan(&privateKey); err != nil {
+		panic(err)
+	}
+
+	d, _ := pem.Decode(privateKey)
+	if d == nil {
+		panic(errors.New("pem.Decode"))
+	}
+
+	key, err := x509.ParsePKCS1PrivateKey(d.Bytes)
+	if err != nil {
+		panic(errors.Wrap(err, "x509.ParsePKCS1PrivateKey"))
+	}
+
+	var rsaKey *rsa.PrivateKey
+	rsaKey = key
+
 	return func(session *smtp.InboundSession) error {
 		remoteAddr, ok := session.State.RemoteAddr.(*net.TCPAddr)
 		if !ok {
@@ -172,31 +194,17 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 		}
 
 		// add dkim
-		    d, _ := pem.Decode(privateKey)
-    if d == nil {
-        return errors.New("pem.Decode")
-    }
 
-    key, err := x509.ParsePKCS1PrivateKey(d.Bytes)
-    if err != nil {
-        return errors.Wrap(err, "x509.ParsePKCS1PrivateKey")
-    }
+		opts := dkim.SignOptions{
+			Domain:   "pageup.me",
+			Selector: "default",
+			Signer:   rsaKey,
+			Hash:     crypto.SHA256,
+		}
 
-    var rsaKey *rsa.PrivateKey
-    rsaKey = key
-
-    opts := dkim.SignOptions{
-        Domain:   domain,
-        Selector: "default",
-        Signer:   rsaKey,
-        Hash:     crypto.SHA256,
-    }
-
-    if err := dkim.Sign(b, bytes.NewReader(e.Message), &opts); err != nil {
-        log.Printf("Error in sign: %s\n`%s`", err, string(e.Message))
-        return errors.Wrap(err, "Sign")
-    }
-
+		if err := dkim.Sign(b, final, &opts); err != nil {
+			return errors.Wrap(err, "Sign")
+		}
 
 		log.Printf("MESSAGE:\n%s", string(final.Bytes()))
 

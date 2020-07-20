@@ -60,7 +60,7 @@ func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 	return func(ctx context.Context, email string) (int, error) {
 
 		if _, ok := nxmatch.Get(email); ok {
-			return 0, errors.New("No match")
+			return 0, errors.Errorf("nxmatch cache hit for '%s'", email)
 		}
 
 		if aliasID, ok := matches.Get(email); ok {
@@ -69,7 +69,7 @@ func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 
 		parts := strings.Split(email, "@")
 		if len(parts) != 2 {
-			return 0, errors.New("Malformed email address")
+			return 0, errors.Errorf("bad email: '%s'", email)
 		}
 
 		user := parts[0]
@@ -77,7 +77,7 @@ func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 
 		// check if this is a bad domain we have checked already
 		if _, ok := nxdomain.Get(domain); ok {
-			return 0, errors.Errorf("Domain '%s' not accepted", domain)
+			return 0, errors.Errorf("nxdomain cache hit for '%s'", domain)
 		}
 
 		// search for domain in the database
@@ -100,7 +100,7 @@ func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 			)
 			if err != nil {
 				nxdomain.SetWithTTL(domain, struct{}{}, 1, defaultTTL)
-				return 0, errors.Errorf("Domain '%s' not accepted", domain)
+				return 0, err
 			}
 
 			aliases.SetWithTTL(domain, all, 1, defaultTTL)
@@ -124,6 +124,6 @@ func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 		// no matches found, update nxmatch and return
 		nxmatch.SetWithTTL(email, struct{}{}, 1, defaultTTL)
 
-		return 0, errors.New("No match")
+		return 0, errors.New("nxmatch")
 	}, nil
 }

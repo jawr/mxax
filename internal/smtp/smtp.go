@@ -42,5 +42,5 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 }
 
 func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, error) {
-	return s.newInboundSession(s.s.Domain, state), nil
+	return s.newInboundSession(s.s.Domain, state)
 }

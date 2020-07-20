@@ -81,14 +81,14 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		// create a received header
 		remoteAddr, ok := session.State.RemoteAddr.(*net.TCPAddr)
 		if !ok {
-			return errors.New("Execpted TCPAddr")
+			return errors.New("execpted *net.TCPAddr")
 		}
 		remoteIP := remoteAddr.IP.String()
 
 		var rdns string
 		addr, err := net.LookupAddr(remoteIP)
 		if err != nil {
-			return errors.WithMessage(err, "LookupAddr")
+			return errors.WithMessagef(err, "LookupAddr '%s'", remoteIP)
 		}
 
 		if len(addr) > 0 {
@@ -126,11 +126,11 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		defer pool.Put(final)
 
 		if _, err := final.WriteString(receivedHeader); err != nil {
-			return errors.WithMessage(err, "Write receivedHeader")
+			return errors.WithMessage(err, "WriteString receivedHeader")
 		}
 
 		if _, err := final.ReadFrom(&session.Message); err != nil {
-			return errors.WithMessage(err, "Read Message")
+			return errors.WithMessage(err, "ReadFrom Message")
 		}
 
 		// get domain
@@ -158,7 +158,7 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		defer pool.Put(b)
 
 		if err := dkim.Sign(b, final, &opts); err != nil {
-			return errors.Wrap(err, "Sign")
+			return errors.Wrap(err, "dkim.Sign")
 		}
 
 		destinations, err := getDestinations(db, destinationCache, session.AliasID)
@@ -167,18 +167,18 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		}
 
 		if len(destinations) == 0 {
-			return errors.Errorf("No destinations found for alias %d", session.AliasID)
+			return errors.Errorf("no destinations found for alias %d", session.AliasID)
 		}
 
 		for _, destination := range destinations {
 			parts := strings.Split(destination.Address, "@")
 			if len(parts) != 2 {
-				return errors.Errorf("Bad destination Address: %s", destination.Address)
+				return errors.Errorf("bad destination: '%s'", destination.Address)
 			}
 
 			destinationMXs, err := getDestinationMXs(destinationMXsCache, parts[1])
 			if err != nil {
-				return errors.WithMessage(err, "getDestinationMXs")
+				return errors.WithMessagef(err, "getDestinationMXs for %d '%s'", destination.ID, parts[1])
 			}
 
 			// TODO
@@ -189,7 +189,7 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 				dialErr = nil
 				client, dialErr := stdsmtp.Dial(mx.Host + ":25")
 				if dialErr != nil {
-					dialErr = errors.WithMessagef(err, "Dial: %s", mx.Host)
+					dialErr = errors.WithMessagef(err, "Dial %d: '%s'", destination.ID, mx.Host)
 					continue
 				}
 
@@ -201,8 +201,10 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 					ServerName: mx.Host,
 				}
 
-				if err := client.StartTLS(tlsConfig); err != nil {
-					return errors.WithMessage(err, "StartTLS")
+				if ok, _ := client.Extension("STARTTLS"); ok {
+					if err := client.StartTLS(tlsConfig); err != nil {
+						return errors.WithMessage(err, "StartTLS")
+					}
 				}
 
 				if err := client.Mail(session.To); err != nil {
@@ -232,9 +234,10 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 
 				break
 			}
+
 			// check for any dial errors
 			if dialErr != nil {
-				return errors.WithMessage(err, "Dial")
+				return err
 			}
 		}
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net"
 	stdsmtp "net/smtp"
 	"os"
 	"strings"
@@ -111,71 +112,61 @@ func makeAliasHandler(db *pgx.Conn) smtp.AliasHandler {
 
 func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true,}
+		InsecureSkipVerify: true,
+	}
+
+	tlsVersions := map[uint16]string{
+		tls.VersionSSL30: "SSL3.0",
+		tls.VersionTLS10: "TLS1.0",
+		tls.VersionTLS11: "TLS1.1",
+		tls.VersionTLS12: "TLS1.2",
+		tls.VersionTLS13: "TLS1.3",
+	}
 
 	return func(session *smtp.InboundSession) error {
 
-		/*
+		var rdns string
+		addr, err := net.LookupAddr(session.State.RemoteAddr)
+		if err != nil {
+			return err
+		}
+
+		if len(addr) > 0 {
+			rdns := strings.Trim(addr[0], ".")
+		}
+
+		var tlsInfo string
+		if session.State.TLS.Version > 0 {
+			version := "unknown"
+			if val, ok := tlsVersions[session.State.TLS.Version]; ok {
+				version = val
+			}
+
+			tlsInfo = fmt.Sprintf(
+				"\r\n\t(version=%s cipher=%s);",
+				version,
+				tls.CipherSuiteName(session.State.TLS.CipherSuite),
+			)
+		}
+
 		receivedHeader := fmt.Sprintf(
-			"Recived: from %s ([%s]) by %s with %s;%s\r\n\t%s\r\n",
+			"Recived: from %s (%s [%s]) by %s with %s;%s\r\n\t%s\r\n",
 			session.State.Hostname,
+			rdns,
 			session.State.RemoteAddr,
 			session.ServerName,
-			// tls info
-			// https://github.com/decke/smtprelay/blob/master/main.go
-			"",
-			"smtp",
-		)
-		*/
-
-		messageID := fmt.Sprintf("<%s@pageup.me>", randSeq(12))
-		boundaryID := randSeq(12)
-		subject := "Test forward"
-
-		/*
-			MIME-Version: 1.0
-			Date: Thu, 16 Jul 2020 14:23:37 +0900
-			References: <ada296ac-0386-41d8-b1e7-5e46d1115c5e@xtgap4s7mta4152.xt.local>
-			In-Reply-To: <ada296ac-0386-41d8-b1e7-5e46d1115c5e@xtgap4s7mta4152.xt.local>
-			Message-ID: <CAMjuidsKex495ZucSoRvvMabAW7f4xVWNgJRgYhFcw-MvFDb_Q@mail.gmail.com>
-			Subject: Fwd: Crunch - Payment Deadline Approaching
-			From: Jess Lawrence <jess@lawrence.pm>
-			To: jess lawrence <jess@lawrence.pm>
-			Content-Type: multipart/alternative; boundary="000000000000d4b0e705aa883abd"
-
-			--000000000000d4b0e705aa883abd
-			Content-Type: text/plain; charset="UTF-8"
-			Content-Transfer-Encoding: quoted-printable
-
-			---------- Forwarded message ---------
-		*/
-		header := fmt.Sprintf(
-			`MIME-Version: 1.0
-Date: %s
-Message-ID: %s
-Subject: %s
-From: Hi <hi@pageup.me>
-To: <jessjlawrence@gmail.com>
-Content-Type: multipart/alternative; boundary="%s"
-
---%s
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
----------- Forwarded message ---------
-`,
-			time.Now().Format(time.RFC1123Z),
-			messageID,
-			subject,
-			boundaryID,
-			boundaryID,
-			// receivedHeader,
+			tlsInfo,
+			"ESMTP",
+			time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),
 		)
 
-		final := bytes.NewBufferString(header)
+		final := bytes.NewBufferString(receivedHeader)
 
 		if _, err := final.ReadFrom(&session.Message); err != nil {
 			return err
 		}
+
+		// add dkim
 
 		log.Printf("MESSAGE:\n%s", string(final.Bytes()))
 

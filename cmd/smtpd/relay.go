@@ -57,7 +57,7 @@ func getDestinations(db *pgx.Conn, cache *ristretto.Cache, aliasID int) ([]accou
 		context.Background(),
 		db,
 		destinations,
-		"SELECT d.* FROM destinations AS d JOIN aliases AS a ON d.id = a.destination_id WHERE a.id = $1",
+		"SELECT d.* FROM destinations AS d JOIN alias_destinations AS ad ON d.id = ad.destination_id WHERE ad.alias_id = $1",
 		aliasID,
 	)
 	if err != nil {
@@ -262,6 +262,10 @@ func makeRelayHandler(db *pgx.Conn) (smtp.RelayHandler, error) {
 		destinations, err := getDestinations(db, destinationCache, session.AliasID)
 		if err != nil {
 			return errors.WithMessage(err, "getDestinations")
+		}
+
+		if len(destinations) == 0 {
+			return errors.Errorf("No destinations found for alias %d", session.AliasID)
 		}
 
 		for _, destination := range destinations {

@@ -56,7 +56,7 @@ func getDestinations(db *pgx.Conn, cache *ristretto.Cache, aliasID int) ([]accou
 	err := pgxscan.Select(
 		context.Background(),
 		db,
-		destinations,
+		&destinations,
 		"SELECT d.* FROM destinations AS d JOIN alias_destinations AS ad ON d.id = ad.destination_id WHERE ad.alias_id = $1",
 		aliasID,
 	)
@@ -74,11 +74,11 @@ func getDomain(db *pgx.Conn, cache *ristretto.Cache, aliasID int) (*account.Doma
 		return domain.(*account.Domain), nil
 	}
 
-	var domain *account.Domain
+	var domain account.Domain
 	err := pgxscan.Get(
 		context.Background(),
 		db,
-		domain,
+		&domain,
 		"SELECT d.* FROM domains AS d JOIN aliases AS a ON d.id = a.domain_id WHERE a.id = $1",
 		aliasID,
 	)
@@ -86,9 +86,9 @@ func getDomain(db *pgx.Conn, cache *ristretto.Cache, aliasID int) (*account.Doma
 		return nil, err
 	}
 
-	cache.SetWithTTL(aliasID, domain, 1, time.Hour*24)
+	cache.SetWithTTL(aliasID, &domain, 1, time.Hour*24)
 
-	return domain, nil
+	return &domain, nil
 }
 
 func getDkimPrivateKey(db *pgx.Conn, cache *ristretto.Cache, aliasID int) (*rsa.PrivateKey, error) {
@@ -158,7 +158,6 @@ func makeRelayHandler(db *pgx.Conn) (smtp.RelayHandler, error) {
 		return nil, errors.WithMessage(err, "NewCache")
 	}
 
-	tlsConfig := &tls.Config{}
 
 	tlsVersions := map[uint16]string{
 		tls.VersionSSL30: "SSL3.0",
@@ -293,6 +292,10 @@ func makeRelayHandler(db *pgx.Conn) (smtp.RelayHandler, error) {
 
 				if err := client.Hello(os.Getenv("MXAX_DOMAIN")); err != nil {
 					return errors.WithMessage(err, "Hello")
+				}
+
+				tlsConfig := &tls.Config{
+					ServerName: mx.Host,
 				}
 
 				if err := client.StartTLS(tlsConfig); err != nil {

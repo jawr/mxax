@@ -124,15 +124,20 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 	}
 
 	return func(session *smtp.InboundSession) error {
+		remoteAddr, ok := session.State.RemoteAddr.(*net.TCPAddr)
+		if !ok {
+			return errors.New("Execpted TCPAddr")
+		}
+		remoteIP := remoteAddr.IP.String()
 
 		var rdns string
-		addr, err := net.LookupAddr(session.State.RemoteAddr)
+		addr, err := net.LookupAddr(remoteIP)
 		if err != nil {
 			return err
 		}
 
 		if len(addr) > 0 {
-			rdns := strings.Trim(addr[0], ".")
+			rdns = strings.Trim(addr[0], ".")
 		}
 
 		var tlsInfo string
@@ -153,10 +158,10 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 			"Recived: from %s (%s [%s]) by %s with %s;%s\r\n\t%s\r\n",
 			session.State.Hostname,
 			rdns,
-			session.State.RemoteAddr,
+			remoteIP,
 			session.ServerName,
-			tlsInfo,
 			"ESMTP",
+			tlsInfo,
 			time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),
 		)
 
@@ -167,6 +172,31 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 		}
 
 		// add dkim
+		    d, _ := pem.Decode(privateKey)
+    if d == nil {
+        return errors.New("pem.Decode")
+    }
+
+    key, err := x509.ParsePKCS1PrivateKey(d.Bytes)
+    if err != nil {
+        return errors.Wrap(err, "x509.ParsePKCS1PrivateKey")
+    }
+
+    var rsaKey *rsa.PrivateKey
+    rsaKey = key
+
+    opts := dkim.SignOptions{
+        Domain:   domain,
+        Selector: "default",
+        Signer:   rsaKey,
+        Hash:     crypto.SHA256,
+    }
+
+    if err := dkim.Sign(b, bytes.NewReader(e.Message), &opts); err != nil {
+        log.Printf("Error in sign: %s\n`%s`", err, string(e.Message))
+        return errors.Wrap(err, "Sign")
+    }
+
 
 		log.Printf("MESSAGE:\n%s", string(final.Bytes()))
 

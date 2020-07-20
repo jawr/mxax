@@ -4,7 +4,8 @@ go 1.14
 
 require (
 	blitiri.com.ar/go/spf v1.1.0
-	github.com/emersion/go-msgauth v0.5.0 // indirect
+	github.com/dgraph-io/ristretto v0.0.3
+	github.com/emersion/go-msgauth v0.5.0
 	github.com/emersion/go-smtp v0.13.0
 	github.com/georgysavva/scany v0.2.0
 	github.com/jackc/pgtype v1.3.1-0.20200612023650-09efc3839047

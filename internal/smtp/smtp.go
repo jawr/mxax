@@ -2,6 +2,7 @@ package smtp
 
 import (
 	"context"
+	"os"
 
 	"github.com/emersion/go-smtp"
 )
@@ -34,6 +35,7 @@ func NewServer(aliasHandler AliasHandler, relayHandler RelayHandler) *Server {
 	}
 
 	server.s = smtp.NewServer(server)
+	server.s.Debug = os.Stdout
 
 	return server
 }

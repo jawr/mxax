@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jess/mxax/internal/account"
 	"github.com/jess/mxax/internal/smtp"
+	"github.com/emersion/go-msgauth/dkim"
 	"github.com/pkg/errors"
 )
 
@@ -128,7 +129,7 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 	}
 
 	var privateKey []byte
-	if err := db.QueryRow("SELECT private_key FROM dkim_keys").Scan(&privateKey); err != nil {
+	if err := db.QueryRow(context.Background(), "SELECT private_key FROM dkim_keys").Scan(&privateKey); err != nil {
 		panic(err)
 	}
 
@@ -202,11 +203,10 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 			Hash:     crypto.SHA256,
 		}
 
-		if err := dkim.Sign(b, final, &opts); err != nil {
+		var b bytes.Buffer
+		if err := dkim.Sign(&b, final, &opts); err != nil {
 			return errors.Wrap(err, "Sign")
 		}
-
-		log.Printf("MESSAGE:\n%s", string(final.Bytes()))
 
 		client, err := stdsmtp.Dial("gmail-smtp-in.l.google.com:25")
 		if err != nil {
@@ -234,7 +234,7 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 			return err
 		}
 
-		if _, err := final.WriteTo(wc); err != nil {
+		if _, err := b.WriteTo(wc); err != nil {
 			return err
 		}
 

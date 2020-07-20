@@ -110,10 +110,12 @@ func makeAliasHandler(db *pgx.Conn) smtp.AliasHandler {
 }
 
 func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,}
 
 	return func(session *smtp.InboundSession) error {
 
+		/*
 		receivedHeader := fmt.Sprintf(
 			"Recived: from %s ([%s]) by %s with %s;%s\r\n\t%s\r\n",
 			session.State.Hostname,
@@ -124,6 +126,7 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 			"",
 			"smtp",
 		)
+		*/
 
 		messageID := fmt.Sprintf("<%s@pageup.me>", randSeq(12))
 		boundaryID := randSeq(12)
@@ -149,7 +152,7 @@ func makeRelayHandler(db *pgx.Conn) smtp.RelayHandler {
 		header := fmt.Sprintf(
 			`MIME-Version: 1.0
 Date: %s
-Message-ID: <%s>
+Message-ID: %s
 Subject: %s
 From: Hi <hi@pageup.me>
 To: <jessjlawrence@gmail.com>
@@ -159,14 +162,13 @@ Content-Type: multipart/alternative; boundary="%s"
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 ---------- Forwarded message ---------
-%s
 `,
 			time.Now().Format(time.RFC1123Z),
 			messageID,
 			subject,
 			boundaryID,
 			boundaryID,
-			receivedHeader,
+			// receivedHeader,
 		)
 
 		final := bytes.NewBufferString(header)
@@ -175,12 +177,14 @@ Content-Transfer-Encoding: quoted-printable
 			return err
 		}
 
+		log.Printf("MESSAGE:\n%s", string(final.Bytes()))
+
 		client, err := stdsmtp.Dial("gmail-smtp-in.l.google.com:25")
 		if err != nil {
 			return err
 		}
 
-		if err := client.Hello("pageup.me"); err != nil {
+		if err := client.Hello("pageup.uk"); err != nil {
 			return err
 		}
 

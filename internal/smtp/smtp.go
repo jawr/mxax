@@ -1,19 +1,10 @@
 package smtp
 
 import (
-	"context"
 	"os"
 
 	"github.com/emersion/go-smtp"
 )
-
-// AliasHandler checks to see if the domain is valid
-// and if the domain has any aliases attached that
-// match this email address
-type AliasHandler func(ctx context.Context, email string) (int, error)
-
-// On a successful relay, pass to the handler
-type RelayHandler func(session *InboundSession) error
 
 // Server will listen for smtp connections
 // and check them against various rules in the

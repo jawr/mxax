@@ -1,20 +1,23 @@
-package main
+package smtp
 
 import (
 	"context"
 	"strings"
-	"log"
 	"time"
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
 	"github.com/jess/mxax/internal/account"
-	"github.com/jess/mxax/internal/smtp"
 	"github.com/pkg/errors"
 )
 
-func makeAliasHandler(db *pgx.Conn) (smtp.AliasHandler, error) {
+// AliasHandler checks to see if the domain is valid
+// and if the domain has any aliases attached that
+// match this email address
+type AliasHandler func(ctx context.Context, email string) (int, error)
+
+func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 
 	nxdomain, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
@@ -74,26 +77,34 @@ func makeAliasHandler(db *pgx.Conn) (smtp.AliasHandler, error) {
 
 		// check if this is a bad domain we have checked already
 		if _, ok := nxdomain.Get(domain); ok {
-			return 0, errors.Errorf("Domain %s not accepted.", domain)
+			return 0, errors.Errorf("Domain '%s' not accepted", domain)
 		}
 
 		// search for domain in the database
 		var all []account.Alias
 		cacheAll, ok := aliases.Get(domain)
+
 		if !ok {
-			 err := pgxscan.Select(
-				 ctx,
-				 db,
-				 &all,
-				 "SELECT a.* FROM aliases AS a JOIN domains AS d ON a.domain_id = d.id WHERE d.name = $1 AND d.deleted_at IS NULL AND d.verified_at IS NOT NULL",
-				 domain,
-			 )
-			 if err != nil {
+			err := pgxscan.Select(
+				ctx,
+				db,
+				&all,
+				`
+				SELECT a.* 
+				FROM aliases AS a 
+					JOIN domains AS d ON a.domain_id = d.id 
+				WHERE d.name = $1 
+					AND d.deleted_at IS NULL 
+					AND d.verified_at IS NOT NULL`,
+				domain,
+			)
+			if err != nil {
 				nxdomain.SetWithTTL(domain, struct{}{}, 1, defaultTTL)
-			log.Printf("Error selecting aliases: %s", err)
-				return 0, errors.Errorf("Domain %s not accepted", domain)
+				return 0, errors.Errorf("Domain '%s' not accepted", domain)
 			}
+
 			aliases.SetWithTTL(domain, all, 1, defaultTTL)
+
 		} else {
 			all = cacheAll.([]account.Alias)
 		}

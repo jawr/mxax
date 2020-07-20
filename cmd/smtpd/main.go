@@ -29,16 +29,19 @@ func run() error {
 
 	log.Println("Connected to the Database")
 
-	aliasHandler, err := makeAliasHandler(db)
+	// for inbound sessions, handles the RCPT TO hook
+	aliasHandler, err := smtp.MakeAliasHandler(db)
 	if err != nil {
 		return errors.WithMessage(err, "makeAliasHandler")
 	}
 
-	relayHandler, err := makeRelayHandler(db)
+	// for inbound sessions, handles the DATA hook
+	relayHandler, err := smtp.MakeRelayHandler(db)
 	if err != nil {
 		return errors.WithMessage(err, "makeRelayHandler")
 	}
 
+	// server will eventually handle inbound and outbound
 	server := smtp.NewServer(aliasHandler, relayHandler)
 
 	log.Println("Starting SMTP Server")

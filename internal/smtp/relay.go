@@ -1,127 +1,29 @@
-package main
+package smtp
 
 import (
 	"bytes"
-	"context"
 	"crypto"
-	"crypto/rsa"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net"
 	stdsmtp "net/smtp"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/emersion/go-msgauth/dkim"
-	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
-	"github.com/jess/mxax/internal/account"
-	"github.com/jess/mxax/internal/smtp"
 	"github.com/pkg/errors"
 )
 
-func getDestinationMXs(cache *ristretto.Cache, domain string) ([]*net.MX, error) {
-	if mxs, ok := cache.Get(domain); ok {
-		return mxs.([]*net.MX), nil
-	}
+// On a successful relay, pass to the handler
+type RelayHandler func(session *InboundSession) error
 
-	mxs, err := net.LookupMX(domain)
-	if err != nil {
-		return nil, errors.WithMessage(err, "LookupMX")
-	}
-
-	if len(mxs) == 0 {
-		return nil, errors.Errorf("Found no MX domains for %s", domain)
-	}
-
-	sort.Slice(mxs, func(i, j int) bool {
-		return mxs[i].Pref < mxs[j].Pref
-	})
-
-	return mxs, nil
-}
-
-func getDestinations(db *pgx.Conn, cache *ristretto.Cache, aliasID int) ([]account.Destination, error) {
-	if destinations, ok := cache.Get(aliasID); ok {
-		return destinations.([]account.Destination), nil
-	}
-
-	var destinations []account.Destination
-	err := pgxscan.Select(
-		context.Background(),
-		db,
-		&destinations,
-		"SELECT d.* FROM destinations AS d JOIN alias_destinations AS ad ON d.id = ad.destination_id WHERE ad.alias_id = $1",
-		aliasID,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	cache.SetWithTTL(aliasID, destinations, 1, time.Hour*24)
-
-	return destinations, nil
-}
-
-func getDomain(db *pgx.Conn, cache *ristretto.Cache, aliasID int) (*account.Domain, error) {
-	if domain, ok := cache.Get(aliasID); ok {
-		return domain.(*account.Domain), nil
-	}
-
-	var domain account.Domain
-	err := pgxscan.Get(
-		context.Background(),
-		db,
-		&domain,
-		"SELECT d.* FROM domains AS d JOIN aliases AS a ON d.id = a.domain_id WHERE a.id = $1",
-		aliasID,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	cache.SetWithTTL(aliasID, &domain, 1, time.Hour*24)
-
-	return &domain, nil
-}
-
-func getDkimPrivateKey(db *pgx.Conn, cache *ristretto.Cache, aliasID int) (*rsa.PrivateKey, error) {
-	if key, ok := cache.Get(aliasID); ok {
-		return key.(*rsa.PrivateKey), nil
-	}
-
-	var privateKey []byte
-	err := db.QueryRow(
-		context.Background(),
-		"SELECT private_key FROM dkim_keys WHERE domain_id = $1",
-		aliasID,
-	).Scan(&privateKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Select")
-	}
-
-	d, _ := pem.Decode(privateKey)
-	if d == nil {
-		return nil, errors.New("pem.Decode")
-	}
-
-	key, err := x509.ParsePKCS1PrivateKey(d.Bytes)
-	if err != nil {
-		return nil, errors.WithMessage(err, "x509.ParsePKCS1PrivateKey")
-	}
-
-	cache.SetWithTTL(aliasID, key, 1, time.Hour*24)
-
-	return key, nil
-}
-
-func makeRelayHandler(db *pgx.Conn) (smtp.RelayHandler, error) {
+// create an inbound handler that handles the DATA hok
+func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
+	// create various caches
 	destinationMXsCache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).
@@ -158,7 +60,7 @@ func makeRelayHandler(db *pgx.Conn) (smtp.RelayHandler, error) {
 		return nil, errors.WithMessage(err, "NewCache")
 	}
 
-
+	// map for selecting tls version
 	tlsVersions := map[uint16]string{
 		tls.VersionSSL30: "SSL3.0",
 		tls.VersionTLS10: "TLS1.0",
@@ -167,14 +69,14 @@ func makeRelayHandler(db *pgx.Conn) (smtp.RelayHandler, error) {
 		tls.VersionTLS13: "TLS1.3",
 	}
 
-	// setup a pool for bytes
+	// setup a pool for bytes.Buffers
 	pool := sync.Pool{
 		New: func() interface{} {
 			return new(bytes.Buffer)
 		},
 	}
 
-	return func(session *smtp.InboundSession) error {
+	return func(session *InboundSession) error {
 
 		// create a received header
 		remoteAddr, ok := session.State.RemoteAddr.(*net.TCPAddr)
@@ -237,12 +139,13 @@ func makeRelayHandler(db *pgx.Conn) (smtp.RelayHandler, error) {
 			return errors.WithMessage(err, "getDomain")
 		}
 
-		// add dkim
-		key, err := getDkimPrivateKey(db, dkimKeyCache, session.AliasID)
+		// get dkim
+		key, err := getDkimPrivateKey(db, dkimKeyCache, domain.ID)
 		if err != nil {
 			return errors.WithMessage(err, "getDkimPrivateKey")
 		}
 
+		// sign the email
 		opts := dkim.SignOptions{
 			Domain:   domain.Name,
 			Selector: "default",

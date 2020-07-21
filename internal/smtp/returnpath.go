@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/ristretto"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 )
@@ -32,12 +33,21 @@ func MakeReturnPathHandler(db *pgx.Conn) (ReturnPathHandler, error) {
 			return "", errors.Errorf("bad email: '%s'", to)
 		}
 
+		// dirty check
+		id, err := uuid.Parse(parts[0])
+		if err != nil {
+			return "", errors.WithMessagef(err, "Parse: '%s'", parts[0])
+		}
+		if id == uuid.Nil {
+			return "", errors.Errorf("Nil uuid for '%s'", parts[0])
+		}
+
 		// check db
 		var replyTo string
-		err := db.QueryRow(
+		err = db.QueryRow(
 			context.Background(),
 			"SELECT return_to FROM return_paths WHERE id = $1",
-			parts[0],
+			id,
 		).Scan(&replyTo)
 		if err != nil {
 			return "", errors.WithMessage(err, "Select")
@@ -51,6 +61,16 @@ func MakeReturnPathHandler(db *pgx.Conn) (ReturnPathHandler, error) {
 
 		// TODO
 		// update db
+
+		_, err = db.Exec(
+			context.Background(),
+			"UPDATE return_paths SET returned_at = NOW() WHERE id = $1",
+			id,
+		)
+		if err != nil {
+			return "", errors.WithMessage(err, "Update")
+		}
+
 		return replyTo, nil
 	}, nil
 }

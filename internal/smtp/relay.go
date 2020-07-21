@@ -114,6 +114,37 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 			)
 		}
 
+		// get domain
+		domain, err := getDomain(db, domainCache, session.AliasID)
+		if err != nil {
+			return errors.WithMessage(err, "getDomain")
+		}
+
+		// write return path
+		returnPathHeader := fmt.Sprintf(
+			"Return-Path: <%s@%s>\r\n",
+			session.ID,
+			domain.Name,
+		)
+
+		// TODO
+		// at the moment we are using the from address as our eventual return path
+		// we are also not stripping out any existing return-path headers; dp we want
+		// to set the return to to from if we dont find (and strip) any return-path
+		// header values
+		// also how do we handle this when we have multiple addresses
+		_, err = db.Exec(
+			context.Background(),
+			"INSERT INTO return_paths (id, alias_id, return_to) VALUES ($1, $2, $3)",
+			session.ID,
+			session.AliasID,
+			session.From,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Insert ReturnPath")
+		}
+
+		// get alias' destinations to forward on to
 		destinations, err := getDestinations(db, destinationCache, session.AliasID)
 		if err != nil {
 			return errors.WithMessage(err, "getDestinations")
@@ -157,35 +188,6 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 				tlsInfo,
 				time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),
 			)
-
-			// get domain
-			domain, err := getDomain(db, domainCache, session.AliasID)
-			if err != nil {
-				return errors.WithMessage(err, "getDomain")
-			}
-
-			// write return path
-			returnPathHeader := fmt.Sprintf(
-				"Return-Path: <%s@%s>\r\n",
-				session.ID,
-				domain.Name,
-			)
-
-			// TODO
-			// at the moment we are using the from address as our eventual return path
-			// we are also not stripping out any existing return-path headers; dp we want
-			// to set the return to to from if we dont find (and strip) any return-path
-			// header values
-			_, err = db.Exec(
-				context.Background(),
-				"INSERT INTO return_paths (id, alias_id, return_to) VALUES ($1, $2, $3)",
-				session.ID,
-				session.AliasID,
-				session.From,
-			)
-			if err != nil {
-				return errors.WithMessage(err, "Insert ReturnPath")
-			}
 
 			// write the received header to the buffer
 			final := pool.Get().(*bytes.Buffer)

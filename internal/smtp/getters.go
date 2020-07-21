@@ -52,7 +52,7 @@ func getDestinations(db *pgx.Conn, cache *ristretto.Cache, aliasID int) ([]accou
 	err := pgxscan.Select(
 		context.Background(),
 		db,
-		destinations,
+		&destinations,
 		"SELECT d.* FROM destinations AS d JOIN alias_destinations AS ad ON d.id = ad.destination_id WHERE ad.alias_id = $1",
 		aliasID,
 	)
@@ -71,11 +71,11 @@ func getDomain(db *pgx.Conn, cache *ristretto.Cache, aliasID int) (*account.Doma
 		return domain.(*account.Domain), nil
 	}
 
-	var domain *account.Domain
+	var domain account.Domain
 	err := pgxscan.Get(
 		context.Background(),
 		db,
-		domain,
+		&domain,
 		"SELECT d.* FROM domains AS d JOIN aliases AS a ON d.id = a.domain_id WHERE a.id = $1",
 		aliasID,
 	)
@@ -83,9 +83,9 @@ func getDomain(db *pgx.Conn, cache *ristretto.Cache, aliasID int) (*account.Doma
 		return nil, err
 	}
 
-	cache.SetWithTTL(aliasID, domain, 1, defaultCacheTTL)
+	cache.SetWithTTL(aliasID, &domain, 1, defaultCacheTTL)
 
-	return domain, nil
+	return &domain, nil
 }
 
 // ttl cached lookup of dkim private key for a domain

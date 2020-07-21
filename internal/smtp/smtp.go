@@ -28,7 +28,10 @@ func NewServer(aliasHandler AliasHandler, relayHandler RelayHandler) *Server {
 	}
 
 	server.s = smtp.NewServer(server)
-	server.s.Debug = os.Stdout
+
+	if len(os.Getenv("MXAX_DEBUG")) > 0 {
+		server.s.Debug = os.Stdout
+	}
 
 	return server
 }

@@ -62,10 +62,12 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 }
 
 func (s *InboundSession) String() string {
-	return fmt.Sprintf("is-%s", s.id)
+	return fmt.Sprintf("is:%s", s.id)
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
+	log.Printf("%s - Mail - From '%s'", s, from)
+
 	tcpAddr, ok := s.State.RemoteAddr.(*net.TCPAddr)
 	if !ok {
 		log.Printf("%s - Mail - Unable to case RemoteAddr: %+v", s.State.RemoteAddr)
@@ -93,22 +95,22 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 	s.From = from
 
-	log.Printf("%s - Mail - From '%s'", s, from)
 
 	return nil
 }
 
 func (s *InboundSession) Rcpt(to string) error {
+
 	aliasID, err := s.aliasHandler(s.ctx, to)
 	if err != nil {
-		log.Printf("%s - Rcpt - %s", err)
+		log.Printf("%s - Rcpt - To: '%s' - Error: %s", s, to, err)
 		return errors.Errorf("unknown recipient (%s)", s)
 	}
 
 	s.AliasID = aliasID
 	s.To = to
 
-	log.Printf("%s - Mail - AliasID: %d To: %s", s, aliasID, to)
+	log.Printf("%s - Mail - To: '%s' - AliasID: %d", s, to, aliasID)
 
 	return nil
 }
@@ -127,12 +129,13 @@ func (s *InboundSession) Data(r io.Reader) error {
 		return errors.Errorf("unable to relay this message (%s)", s)
 	}
 
-	log.Printf("%s - Data - read %d bytes in %s", n, time.Since(start))
+	log.Printf("%s - Data - read %d bytes in %s", s, n, time.Since(start))
 
 	return nil
 }
 
 func (s *InboundSession) Reset() {
+	log.Printf("%s - Reset - after %s", s, time.Since(s.start))
 	s.State = nil
 	s.From = ""
 	s.To = ""
@@ -144,7 +147,9 @@ func (s *InboundSession) Reset() {
 }
 
 func (s *InboundSession) Logout() error {
-	log.Printf("%s - Logout - took %s", s, time.Since(s.start))
-	s.Reset()
+	if s.State != nil {
+		s.Reset()
+	}
+	log.Printf("%s - Logout", s)
 	return nil
 }

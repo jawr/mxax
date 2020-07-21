@@ -13,3 +13,9 @@ The following are needed before beta:
 - [ ] Frontend; pure HTML interface, or ReactJS SPA?
 - [ ] Tracing; we want to be able to turn on tracing so we can discover issues
 - [ ] Metrics; ability to alert, discover, etc
+
+## Features
+Some ideas
+
+- Aliases should have a settable order, or the ability to define a catchall after 
+  all custom aliases have been checked

@@ -171,6 +171,9 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		}
 
 		for _, destination := range destinations {
+
+			break 
+
 			parts := strings.Split(destination.Address, "@")
 			if len(parts) != 2 {
 				return errors.Errorf("bad destination: '%s'", destination.Address)

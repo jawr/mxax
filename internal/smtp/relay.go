@@ -5,7 +5,9 @@ import (
 	"context"
 	"crypto"
 	"crypto/tls"
+	"io"
 	"log"
+
 	// "io/ioutil"
 	"fmt"
 	"net"
@@ -112,106 +114,6 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 			)
 		}
 
-		receivedHeader := fmt.Sprintf(
-			"Received: from %s (%s [%s]) by %s with %s id %s for <%s>;%s\r\n\t%s\r\n",
-			session.State.Hostname,
-			rdns,
-			remoteIP,
-			session.ServerName,
-			"ESMTP",
-			session.String(),
-			"jessjlawrence@gmail.com",
-			tlsInfo,
-			time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),
-		)
-
-		// get domain
-		domain, err := getDomain(db, domainCache, session.AliasID)
-		if err != nil {
-			return errors.WithMessage(err, "getDomain")
-		}
-
-		// write return path
-		// returnPathHeader := fmt.Sprintf(
-		// 	"Return-Path: <%s@%s>\r\n",
-		// 	session.ID,
-		// 	domain.Name,
-		// )
-
-		// TODO
-		// at the moment we are using the from address as our eventual return path
-		// we are also not stripping out any existing return-path headers; dp we want
-		// to set the return to to from if we dont find (and strip) any return-path 
-		// header values
-		_, err = db.Exec(
-			context.Background(),
-			"INSERT INTO return_paths (id, alias_id, return_to) VALUES ($1, $2, $3)",
-			session.ID,
-			session.AliasID,
-			session.From,
-		)
-		if err != nil {
-			return errors.WithMessage(err, "Insert ReturnPath")
-		}
-
-		// write the received header to the buffer
-		final := pool.Get().(*bytes.Buffer)
-		final.Reset()
-		defer pool.Put(final)
-
-		// write received header
-		if _, err := final.WriteString(receivedHeader); err != nil {
-			return errors.WithMessage(err, "WriteString receivedHeader")
-		}
-
-		// write return path
-		// if _, err := final.WriteString(returnPathHeader); err != nil {
-		// 	return errors.WithMessage(err, "WriteString receivedHeader")
-		// }
-
-		// write the actual message
-		if _, err := final.ReadFrom(&session.Message); err != nil {
-			return errors.WithMessage(err, "ReadFrom Message")
-		}
-
-		// get dkim and proceed to sign
-		key, err := getDkimPrivateKey(db, dkimKeyCache, domain.ID)
-		if err != nil {
-			return errors.WithMessage(err, "getDkimPrivateKey")
-		}
-
-		// sign the email
-		opts := dkim.SignOptions{
-			Domain:   domain.Name,
-			Selector: "default",
-			Signer:   key,
-			Hash:     crypto.SHA256,
-			/*/HeaderKeys: []string{
-				"mime-version",
-				"from",
-				"date",
-				"message-id",
-				"subject",
-				"to",
-			},*/
-		}
-
-		b := pool.Get().(*bytes.Buffer)
-		b.Reset()
-		defer pool.Put(b)
-
-		if err := dkim.Sign(b, final, &opts); err != nil {
-			return errors.Wrap(err, "dkim.Sign")
-		}
-
-		/*
-		log.Printf("\n\n%s\n\n", b.Bytes())
-
-		if err := ioutil.WriteFile("example.txt", b.Bytes(), 0644); err != nil {
-			return errors.WithMessage(err, "WriteFile")
-		}
-		*/
-
 		destinations, err := getDestinations(db, destinationCache, session.AliasID)
 		if err != nil {
 			return errors.WithMessage(err, "getDestinations")
@@ -221,7 +123,13 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 			return errors.Errorf("no destinations found for alias %d", session.AliasID)
 		}
 
+		// create a reader
+		message := bytes.NewReader(session.Message.Bytes())
+
 		for _, destination := range destinations {
+			if _, err := message.Seek(0, io.SeekStart); err != nil {
+				return errors.WithMessage(err, "unable to seek message")
+			}
 
 			log.Printf("%s - Send to '%s'", session, destination.Address)
 
@@ -235,6 +143,90 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 			destinationMXs, err := getDestinationMXs(destinationMXsCache, parts[1])
 			if err != nil {
 				return errors.WithMessagef(err, "getDestinationMXs for %d '%s'", destination.ID, parts[1])
+			}
+
+			receivedHeader := fmt.Sprintf(
+				"Received: from %s (%s [%s]) by %s with %s id %s for <%s>;%s\r\n\t%s\r\n",
+				session.State.Hostname,
+				rdns,
+				remoteIP,
+				session.ServerName,
+				"ESMTP",
+				session.String(),
+				destination.Address,
+				tlsInfo,
+				time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),
+			)
+
+			// get domain
+			domain, err := getDomain(db, domainCache, session.AliasID)
+			if err != nil {
+				return errors.WithMessage(err, "getDomain")
+			}
+
+			// write return path
+			returnPathHeader := fmt.Sprintf(
+				"Return-Path: <%s@%s>\r\n",
+				session.ID,
+				domain.Name,
+			)
+
+			// TODO
+			// at the moment we are using the from address as our eventual return path
+			// we are also not stripping out any existing return-path headers; dp we want
+			// to set the return to to from if we dont find (and strip) any return-path
+			// header values
+			_, err = db.Exec(
+				context.Background(),
+				"INSERT INTO return_paths (id, alias_id, return_to) VALUES ($1, $2, $3)",
+				session.ID,
+				session.AliasID,
+				session.From,
+			)
+			if err != nil {
+				return errors.WithMessage(err, "Insert ReturnPath")
+			}
+
+			// write the received header to the buffer
+			final := pool.Get().(*bytes.Buffer)
+			final.Reset()
+			defer pool.Put(final)
+
+			// write return path
+			if _, err := final.WriteString(returnPathHeader); err != nil {
+				return errors.WithMessage(err, "WriteString receivedHeader")
+			}
+
+			// write received header
+			if _, err := final.WriteString(receivedHeader); err != nil {
+				return errors.WithMessage(err, "WriteString receivedHeader")
+			}
+
+			// write the actual message
+			if _, err := final.ReadFrom(message); err != nil {
+				return errors.WithMessage(err, "ReadFrom Message")
+			}
+
+			// get dkim and proceed to sign
+			key, err := getDkimPrivateKey(db, dkimKeyCache, domain.ID)
+			if err != nil {
+				return errors.WithMessage(err, "getDkimPrivateKey")
+			}
+
+			// sign the email
+			opts := dkim.SignOptions{
+				Domain:   domain.Name,
+				Selector: "default",
+				Signer:   key,
+				Hash:     crypto.SHA256,
+			}
+
+			b := pool.Get().(*bytes.Buffer)
+			b.Reset()
+			defer pool.Put(b)
+
+			if err := dkim.Sign(b, final, &opts); err != nil {
+				return errors.Wrap(err, "dkim.Sign")
 			}
 
 			// TODO
@@ -276,8 +268,8 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 					return errors.WithMessage(err, "Data")
 				}
 
-n, err := b.WriteTo(wc)
-if err != nil {
+				n, err := b.WriteTo(wc)
+				if err != nil {
 					return errors.WithMessage(err, "WriteTo")
 				}
 				log.Printf("%s - Wrote %d", session, n)

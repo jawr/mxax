@@ -11,8 +11,6 @@ import (
 	// "io/ioutil"
 	"fmt"
 	"net"
-	stdsmtp "net/smtp"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -29,15 +27,6 @@ type RelayHandler func(session *InboundSession) error
 // create an inbound handler that handles the DATA hok
 func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 	// create various caches
-	destinationMXsCache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
-	}
-
 	dkimKeyCache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).
@@ -166,16 +155,6 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 
 			// break
 
-			parts := strings.Split(destination.Address, "@")
-			if len(parts) != 2 {
-				return errors.Errorf("bad destination: '%s'", destination.Address)
-			}
-
-			destinationMXs, err := getDestinationMXs(destinationMXsCache, parts[1])
-			if err != nil {
-				return errors.WithMessagef(err, "getDestinationMXs for %d '%s'", destination.ID, parts[1])
-			}
-
 			receivedHeader := fmt.Sprintf(
 				"Received: from %s (%s [%s]) by %s with %s id %s for <%s>;%s\r\n\t%s\r\n",
 				session.State.Hostname,
@@ -231,66 +210,16 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 				return errors.Wrap(err, "dkim.Sign")
 			}
 
-			// TODO
-			// try until we hit an mx successfully
-			var dialErr error
-			for _, mx := range destinationMXs {
-				// reset err, if we hit a dial error, iterate to the next
-				dialErr = nil
-				client, dialErr := stdsmtp.Dial(mx.Host + ":25")
-				if dialErr != nil {
-					dialErr = errors.WithMessagef(err, "Dial %d: '%s'", destination.ID, mx.Host)
-					continue
-				}
-
-				if err := client.Hello(os.Getenv("MXAX_DOMAIN")); err != nil {
-					return errors.WithMessage(err, "Hello")
-				}
-
-				tlsConfig := &tls.Config{
-					ServerName: mx.Host,
-				}
-
-				if ok, _ := client.Extension("STARTTLS"); ok {
-					if err := client.StartTLS(tlsConfig); err != nil {
-						return errors.WithMessage(err, "StartTLS")
-					}
-				}
-
-				if err := client.Mail(session.To); err != nil {
-					return errors.WithMessage(err, "Mail")
-				}
-
-				if err := client.Rcpt(destination.Address); err != nil {
-					return errors.WithMessage(err, "Rcpt")
-				}
-
-				wc, err := client.Data()
-				if err != nil {
-					return errors.WithMessage(err, "Data")
-				}
-
-				n, err := b.WriteTo(wc)
-				if err != nil {
-					return errors.WithMessage(err, "WriteTo")
-				}
-				log.Printf("%s - Wrote %d", session, n)
-
-				if err := wc.Close(); err != nil {
-					return errors.WithMessage(err, "Close")
-				}
-
-				if err := client.Quit(); err != nil {
-					return errors.WithMessage(err, "Quit")
-				}
-
-				break
+			err = session.queueEnvelopeHandler(Envelope{
+				ID:      session.ID,
+				From:    session.To,
+				To:      destination.Address,
+				Message: b.Bytes(),
+			})
+			if err != nil {
+				return errors.Wrap(err, "queueEnvelopeHandler")
 			}
 
-			// check for any dial errors
-			if dialErr != nil {
-				return err
-			}
 		}
 
 		return nil

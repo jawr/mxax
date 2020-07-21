@@ -47,11 +47,18 @@ func run() error {
 		return errors.WithMessage(err, "makeReturnPathHandler")
 	}
 
+	// messages to sent get queued here
+	queueEnvelopeHandler, err := smtp.MakeQueueEnvelopeHandler()
+	if err != nil {
+		return errors.WithMessage(err, "makeQueueEnvelopeHandler")
+	}
+
 	// server will eventually handle inbound and outbound
 	server := smtp.NewServer(
 		aliasHandler,
 		returnPathHandler,
 		relayHandler,
+		queueEnvelopeHandler,
 	)
 
 	log.Println("Starting SMTP Server")

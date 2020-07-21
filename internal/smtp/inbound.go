@@ -33,9 +33,10 @@ type InboundSession struct {
 	AliasID int
 
 	// internal interfaces
-	aliasHandler      AliasHandler
-	relayHandler      RelayHandler
-	returnPathHandler ReturnPathHandler
+	aliasHandler         AliasHandler
+	relayHandler         RelayHandler
+	returnPathHandler    ReturnPathHandler
+	queueEnvelopeHandler QueueEnvelopeHandler
 
 	// internal flags
 	returnPath bool
@@ -51,20 +52,21 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 	// try use a pool with a self reference to the server, is Logout guaranteed to be called?
 
 	session := InboundSession{
-		ID:                id,
-		start:             time.Now(),
-		ServerName:        serverName,
-		State:             state,
-		aliasHandler:      s.aliasHandler,
-		relayHandler:      s.relayHandler,
-		returnPathHandler: s.returnPathHandler,
+		ID:                   id,
+		start:                time.Now(),
+		ServerName:           serverName,
+		State:                state,
+		aliasHandler:         s.aliasHandler,
+		relayHandler:         s.relayHandler,
+		returnPathHandler:    s.returnPathHandler,
+		queueEnvelopeHandler: s.queueEnvelopeHandler,
 	}
 
 	return &session, nil
 }
 
 func (s *InboundSession) String() string {
-	return fmt.Sprintf("is-%s", s.ID)
+	return fmt.Sprintf("%s", s.ID)
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
@@ -141,9 +143,21 @@ func (s *InboundSession) Data(r io.Reader) error {
 		return errors.Errorf("can not read message (%s)", s)
 	}
 
-	if err := s.relayHandler(s); err != nil {
-		log.Printf("%s - Data - relayHandler: %s", s, err)
-		return errors.Errorf("unable to relay this message (%s)", s)
+	if s.returnPath {
+		if err := s.queueEnvelopeHandler(Envelope{
+			ID:      s.ID,
+			From:    s.From,
+			To:      s.To,
+			Message: s.Message.Bytes(),
+		}); err != nil {
+			log.Printf("%s - Data - queueEnvelopeHandler: %s", s, err)
+			return errors.Errorf("unable to relay this message (%s)", s)
+		}
+	} else {
+		if err := s.relayHandler(s); err != nil {
+			log.Printf("%s - Data - relayHandler: %s", s, err)
+			return errors.Errorf("unable to relay this message (%s)", s)
+		}
 	}
 
 	log.Printf("%s - Data - read %d bytes in %s", s, n, time.Since(start))

@@ -33,8 +33,12 @@ type InboundSession struct {
 	AliasID int
 
 	// internal interfaces
-	aliasHandler AliasHandler
-	relayHandler RelayHandler
+	aliasHandler      AliasHandler
+	relayHandler      RelayHandler
+	returnPathHandler ReturnPathHandler
+
+	// internal flags
+	returnPath bool
 }
 
 // initialise a new inbound session
@@ -47,12 +51,13 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 	// try use a pool with a self reference to the server, is Logout guaranteed to be called?
 
 	session := InboundSession{
-		ID:           id,
-		start:        time.Now(),
-		ServerName:   serverName,
-		State:        state,
-		aliasHandler: s.aliasHandler,
-		relayHandler: s.relayHandler,
+		ID:                id,
+		start:             time.Now(),
+		ServerName:        serverName,
+		State:             state,
+		aliasHandler:      s.aliasHandler,
+		relayHandler:      s.relayHandler,
+		returnPathHandler: s.returnPathHandler,
 	}
 
 	return &session, nil
@@ -100,8 +105,23 @@ func (s *InboundSession) Rcpt(to string) error {
 
 	aliasID, err := s.aliasHandler(to)
 	if err != nil {
-		log.Printf("%s - Rcpt - To: '%s' - Error: %s", s, to, err)
-		return errors.Errorf("unknown recipient (%s)", s)
+
+		// check and see if we are a bounce relay
+		returnPath, err := s.returnPathHandler(to)
+		if err != nil {
+			log.Printf("%s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
+			return errors.Errorf("unknown recipient (%s)", s)
+		}
+
+		if len(returnPath) == 0 {
+			// no returnPath address found, return aliasHandler error
+			log.Printf("%s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
+			return errors.Errorf("unknown recipient (%s)", s)
+		}
+
+		// overwrite to with returnPath and set returnPath flag
+		to = returnPath
+		s.returnPath = true
 	}
 
 	s.AliasID = aliasID
@@ -140,7 +160,9 @@ func (s *InboundSession) Reset() {
 	s.AliasID = 0
 	s.aliasHandler = nil
 	s.relayHandler = nil
+	s.returnPathHandler = nil
 	s.start = time.Time{}
+	s.returnPath = false
 }
 
 func (s *InboundSession) Logout() error {

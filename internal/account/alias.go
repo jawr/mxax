@@ -14,7 +14,8 @@ type ReturnPath struct {
 	AliasID  int
 	ReturnTo string
 
-	CreatedAt time.Time
+	CreatedAt  time.Time
+	ReturnedAt time.Time
 }
 
 // Alias represents an rule created by an Account

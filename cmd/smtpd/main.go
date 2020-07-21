@@ -41,8 +41,18 @@ func run() error {
 		return errors.WithMessage(err, "makeRelayHandler")
 	}
 
+	// for inbound sessions, handles return path at RCPT TO (post/at failed aliasHandler)
+	returnPathHandler, err := smtp.MakeReturnPathHandler(db)
+	if err != nil {
+		return errors.WithMessage(err, "makeReturnPathHandler")
+	}
+
 	// server will eventually handle inbound and outbound
-	server := smtp.NewServer(aliasHandler, relayHandler)
+	server := smtp.NewServer(
+		aliasHandler,
+		returnPathHandler,
+		relayHandler,
+	)
 
 	log.Println("Starting SMTP Server")
 

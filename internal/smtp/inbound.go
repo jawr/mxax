@@ -18,8 +18,9 @@ import (
 type InboundSession struct {
 	ctx context.Context
 
-	id    uuid.UUID
 	start time.Time
+
+	ID uuid.UUID
 
 	// connection meta data
 	State *smtp.ConnectionState
@@ -49,7 +50,7 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 	// try use a pool with a self reference to the server, is Logout guaranteed to be called?
 
 	session := InboundSession{
-		id:           id,
+		ID:           id,
 		start:        time.Now(),
 		ctx:          context.TODO(),
 		ServerName:   serverName,
@@ -62,7 +63,7 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 }
 
 func (s *InboundSession) String() string {
-	return fmt.Sprintf("is:%s", s.id)
+	return fmt.Sprintf("is:%s", s.ID)
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
@@ -94,7 +95,6 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 	// do we want to provide dbl checks here, i.e. spamhaus?
 
 	s.From = from
-
 
 	return nil
 }

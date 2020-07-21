@@ -120,26 +120,49 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 			time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),
 		)
 
-		// write the received header to the buffer
-		final := pool.Get().(*bytes.Buffer)
-		final.Reset()
-		defer pool.Put(final)
-
-		if _, err := final.WriteString(receivedHeader); err != nil {
-			return errors.WithMessage(err, "WriteString receivedHeader")
-		}
-
-		if _, err := final.ReadFrom(&session.Message); err != nil {
-			return errors.WithMessage(err, "ReadFrom Message")
-		}
-
 		// get domain
 		domain, err := getDomain(db, domainCache, session.AliasID)
 		if err != nil {
 			return errors.WithMessage(err, "getDomain")
 		}
 
-		// get dkim
+		// write return path
+		returnPathHeader := fmt.Sprintf(
+			"Return-Path: <%s@%s>\r\n",
+			session.ID,
+			domain.Name,
+		)
+
+		err := db.Exec(
+			"INSERT INTO return_paths (id, alias_id) VALUES ($1, $2)",
+			session.ID,
+			session.AliasID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Insert ReturnPath")
+		}
+
+		// write the received header to the buffer
+		final := pool.Get().(*bytes.Buffer)
+		final.Reset()
+		defer pool.Put(final)
+
+		// write received header
+		if _, err := final.WriteString(receivedHeader); err != nil {
+			return errors.WithMessage(err, "WriteString receivedHeader")
+		}
+
+		// write return path
+		if _, err := final.WriteString(returnPathHeader); err != nil {
+			return errors.WithMessage(err, "WriteString receivedHeader")
+		}
+
+		// write the actual message
+		if _, err := final.ReadFrom(&session.Message); err != nil {
+			return errors.WithMessage(err, "ReadFrom Message")
+		}
+
+		// get dkim and proceed to sign
 		key, err := getDkimPrivateKey(db, dkimKeyCache, domain.ID)
 		if err != nil {
 			return errors.WithMessage(err, "getDkimPrivateKey")
@@ -172,7 +195,7 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 
 		for _, destination := range destinations {
 
-			break 
+			break
 
 			parts := strings.Split(destination.Address, "@")
 			if len(parts) != 2 {

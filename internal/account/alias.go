@@ -2,7 +2,19 @@ package account
 
 import (
 	"regexp"
+	"time"
+
+	"github.com/google/uuid"
 )
+
+// ReturnPath represents a route back for bounces
+type ReturnPath struct {
+	ID uuid.UUID
+
+	AliasID int
+
+	CreatedAt time.Time
+}
 
 // Alias represents an rule created by an Account
 // for matching and forwarding to destinations

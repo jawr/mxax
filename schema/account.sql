@@ -56,3 +56,9 @@ CREATE TABLE dkim_keys (
 );
 
 CREATE UNIQUE INDEX dkim_keys_domain_id_deleted_at_idx ON dkim_keys (domain_id) WHERE deleted_at IS NULL;
+
+CREATE TABLE return_paths (
+	id UUID PRIMARY KEY,
+	alias_id INT NOT NULL REFERENCES aliases(id),
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);

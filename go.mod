@@ -8,6 +8,7 @@ require (
 	github.com/emersion/go-msgauth v0.5.0
 	github.com/emersion/go-smtp v0.13.0
 	github.com/georgysavva/scany v0.2.0
+	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/jackc/pgtype v1.3.1-0.20200612023650-09efc3839047
 	github.com/jackc/pgx v3.6.2+incompatible

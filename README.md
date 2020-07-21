@@ -5,6 +5,7 @@ easey peasey mail routing
 ## TODO
 The following are needed before beta:
 
+- [ ] Return-Path
 - [ ] Errors; consistent error handling in the smtp package (handlers should not be
   responsible for the eventual SMTP error code/message)
 - [ ] Queues; we should make the entire inbound process more efficient by being as

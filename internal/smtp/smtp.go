@@ -47,8 +47,10 @@ func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, erro
 	session, err := s.newInboundSession(s.s.Domain, state)
 	if err != nil {
 		log.Printf("AnonymousLogin; unable to create new InboundSession: %s", err)
-		return smtp.Session{}, errors.New("temporary error, please try again later")
+		return nil, errors.New("temporary error, please try again later")
 	}
 
 	log.Printf("%s - init", session)
+
+	return session, nil
 }

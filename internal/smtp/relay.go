@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto"
 	"crypto/tls"
+	"log"
+	// "io/ioutil"
 	"fmt"
 	"net"
 	stdsmtp "net/smtp"
@@ -111,12 +113,14 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		}
 
 		receivedHeader := fmt.Sprintf(
-			"Recived: from %s (%s [%s]) by %s with %s;%s\r\n\t%s\r\n",
+			"Received: from %s (%s [%s]) by %s with %s id %s for <%s>;%s\r\n\t%s\r\n",
 			session.State.Hostname,
 			rdns,
 			remoteIP,
 			session.ServerName,
 			"ESMTP",
+			session.String(),
+			"jessjlawrence@gmail.com",
 			tlsInfo,
 			time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),
 		)
@@ -128,11 +132,11 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		}
 
 		// write return path
-		returnPathHeader := fmt.Sprintf(
-			"Return-Path: <%s@%s>\r\n",
-			session.ID,
-			domain.Name,
-		)
+		// returnPathHeader := fmt.Sprintf(
+		// 	"Return-Path: <%s@%s>\r\n",
+		// 	session.ID,
+		// 	domain.Name,
+		// )
 
 		// TODO
 		// at the moment we are using the from address as our eventual return path
@@ -161,9 +165,9 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		}
 
 		// write return path
-		if _, err := final.WriteString(returnPathHeader); err != nil {
-			return errors.WithMessage(err, "WriteString receivedHeader")
-		}
+		// if _, err := final.WriteString(returnPathHeader); err != nil {
+		// 	return errors.WithMessage(err, "WriteString receivedHeader")
+		// }
 
 		// write the actual message
 		if _, err := final.ReadFrom(&session.Message); err != nil {
@@ -182,6 +186,14 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 			Selector: "default",
 			Signer:   key,
 			Hash:     crypto.SHA256,
+			/*/HeaderKeys: []string{
+				"mime-version",
+				"from",
+				"date",
+				"message-id",
+				"subject",
+				"to",
+			},*/
 		}
 
 		b := pool.Get().(*bytes.Buffer)
@@ -191,6 +203,14 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 		if err := dkim.Sign(b, final, &opts); err != nil {
 			return errors.Wrap(err, "dkim.Sign")
 		}
+
+		/*
+		log.Printf("\n\n%s\n\n", b.Bytes())
+
+		if err := ioutil.WriteFile("example.txt", b.Bytes(), 0644); err != nil {
+			return errors.WithMessage(err, "WriteFile")
+		}
+		*/
 
 		destinations, err := getDestinations(db, destinationCache, session.AliasID)
 		if err != nil {
@@ -203,7 +223,9 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 
 		for _, destination := range destinations {
 
-			break
+			log.Printf("%s - Send to '%s'", session, destination.Address)
+
+			// break
 
 			parts := strings.Split(destination.Address, "@")
 			if len(parts) != 2 {
@@ -254,9 +276,11 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 					return errors.WithMessage(err, "Data")
 				}
 
-				if _, err := b.WriteTo(wc); err != nil {
+n, err := b.WriteTo(wc)
+if err != nil {
 					return errors.WithMessage(err, "WriteTo")
 				}
+				log.Printf("%s - Wrote %d", session, n)
 
 				if err := wc.Close(); err != nil {
 					return errors.WithMessage(err, "Close")

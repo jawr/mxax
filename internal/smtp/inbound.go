@@ -59,7 +59,7 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 }
 
 func (s *InboundSession) String() string {
-	return fmt.Sprintf("is:%s", s.ID)
+	return fmt.Sprintf("is-%s", s.ID)
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
@@ -67,7 +67,7 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 	tcpAddr, ok := s.State.RemoteAddr.(*net.TCPAddr)
 	if !ok {
-		log.Printf("%s - Mail - Unable to case RemoteAddr: %+v", s.State.RemoteAddr)
+		log.Printf("%s - Mail - Unable to case RemoteAddr: %+v", s, s.State.RemoteAddr)
 		return errors.Errorf("network error (%s)", s)
 	}
 
@@ -81,6 +81,7 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 	if result == spf.Fail {
 		log.Printf(
 			"%s - Mail - CheckHostWithSender spf.Fail: ip: %s hostname: %s from: %s",
+			s,
 			tcpAddr.IP,
 			s.State.Hostname,
 			from,
@@ -116,12 +117,12 @@ func (s *InboundSession) Data(r io.Reader) error {
 
 	n, err := s.Message.ReadFrom(r)
 	if err != nil {
-		log.Printf("%s - Data - ReadFrom: %s", err)
+		log.Printf("%s - Data - ReadFrom: %s", s, err)
 		return errors.Errorf("can not read message (%s)", s)
 	}
 
 	if err := s.relayHandler(s); err != nil {
-		log.Printf("%s - Data - relayHandler: %s", err)
+		log.Printf("%s - Data - relayHandler: %s", s, err)
 		return errors.Errorf("unable to relay this message (%s)", s)
 	}
 

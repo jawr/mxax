@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 
 	"blitiri.com.ar/go/spf"
 	"github.com/emersion/go-smtp"
@@ -17,7 +18,8 @@ import (
 type InboundSession struct {
 	ctx context.Context
 
-	id uuid.UUID
+	id    uuid.UUID
+	start time.Time
 
 	// connection meta data
 	State *smtp.ConnectionState
@@ -48,6 +50,7 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 
 	session := InboundSession{
 		id:           id,
+		start:        time.Now(),
 		ctx:          context.TODO(),
 		ServerName:   serverName,
 		State:        state,
@@ -90,6 +93,8 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 	s.From = from
 
+	log.Printf("%s - Mail - From '%s'", s, from)
+
 	return nil
 }
 
@@ -103,11 +108,16 @@ func (s *InboundSession) Rcpt(to string) error {
 	s.AliasID = aliasID
 	s.To = to
 
+	log.Printf("%s - Mail - AliasID: %d To: %s", s, aliasID, to)
+
 	return nil
 }
 
 func (s *InboundSession) Data(r io.Reader) error {
-	if _, err := s.Message.ReadFrom(r); err != nil {
+	start := time.Now()
+
+	n, err := s.Message.ReadFrom(r)
+	if err != nil {
 		log.Printf("%s - Data - ReadFrom: %s", err)
 		return errors.Errorf("can not read message (%s)", s)
 	}
@@ -116,6 +126,8 @@ func (s *InboundSession) Data(r io.Reader) error {
 		log.Printf("%s - Data - relayHandler: %s", err)
 		return errors.Errorf("unable to relay this message (%s)", s)
 	}
+
+	log.Printf("%s - Data - read %d bytes in %s", n, time.Since(start))
 
 	return nil
 }
@@ -128,9 +140,11 @@ func (s *InboundSession) Reset() {
 	s.AliasID = 0
 	s.aliasHandler = nil
 	s.relayHandler = nil
+	s.start = time.Time{}
 }
 
 func (s *InboundSession) Logout() error {
+	log.Printf("%s - Logout - took %s", s, time.Since(s.start))
 	s.Reset()
 	return nil
 }

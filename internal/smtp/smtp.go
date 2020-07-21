@@ -1,9 +1,11 @@
 package smtp
 
 import (
+	"log"
 	"os"
 
 	"github.com/emersion/go-smtp"
+	"github.com/pkg/errors"
 )
 
 // Server will listen for smtp connections
@@ -42,5 +44,11 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 }
 
 func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, error) {
-	return s.newInboundSession(s.s.Domain, state)
+	session, err := s.newInboundSession(s.s.Domain, state)
+	if err != nil {
+		log.Printf("AnonymousLogin; unable to create new InboundSession: %s", err)
+		return smtp.Session{}, errors.New("temporary error, please try again later")
+	}
+
+	log.Printf("%s - init", session)
 }

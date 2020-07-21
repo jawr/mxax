@@ -11,7 +11,8 @@ import (
 type ReturnPath struct {
 	ID uuid.UUID
 
-	AliasID int
+	AliasID  int
+	ReturnTo string
 
 	CreatedAt time.Time
 }

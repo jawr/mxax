@@ -15,7 +15,7 @@ import (
 // AliasHandler checks to see if the domain is valid
 // and if the domain has any aliases attached that
 // match this email address
-type AliasHandler func(ctx context.Context, email string) (int, error)
+type AliasHandler func(string) (int, error)
 
 func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 
@@ -57,7 +57,7 @@ func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 
 	const defaultTTL = time.Minute * 5
 
-	return func(ctx context.Context, email string) (int, error) {
+	return func(email string) (int, error) {
 
 		if _, ok := nxmatch.Get(email); ok {
 			return 0, errors.Errorf("nxmatch cache hit for '%s'", email)
@@ -86,7 +86,7 @@ func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
 
 		if !ok {
 			err := pgxscan.Select(
-				ctx,
+				context.Background(),
 				db,
 				&all,
 				`

@@ -2,7 +2,6 @@ package smtp
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -16,8 +15,6 @@ import (
 )
 
 type InboundSession struct {
-	ctx context.Context
-
 	start time.Time
 
 	ID uuid.UUID
@@ -52,7 +49,6 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 	session := InboundSession{
 		ID:           id,
 		start:        time.Now(),
-		ctx:          context.TODO(),
 		ServerName:   serverName,
 		State:        state,
 		aliasHandler: s.aliasHandler,
@@ -101,7 +97,7 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 func (s *InboundSession) Rcpt(to string) error {
 
-	aliasID, err := s.aliasHandler(s.ctx, to)
+	aliasID, err := s.aliasHandler(to)
 	if err != nil {
 		log.Printf("%s - Rcpt - To: '%s' - Error: %s", s, to, err)
 		return errors.Errorf("unknown recipient (%s)", s)

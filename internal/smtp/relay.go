@@ -2,6 +2,7 @@ package smtp
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/tls"
 	"fmt"
@@ -133,10 +134,17 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 			domain.Name,
 		)
 
-		err := db.Exec(
-			"INSERT INTO return_paths (id, alias_id) VALUES ($1, $2)",
+		// TODO
+		// at the moment we are using the from address as our eventual return path
+		// we are also not stripping out any existing return-path headers; dp we want
+		// to set the return to to from if we dont find (and strip) any return-path 
+		// header values
+		_, err = db.Exec(
+			context.Background(),
+			"INSERT INTO return_paths (id, alias_id, return_to) VALUES ($1, $2, $3)",
 			session.ID,
 			session.AliasID,
+			session.From,
 		)
 		if err != nil {
 			return errors.WithMessage(err, "Insert ReturnPath")

@@ -13,20 +13,22 @@ import (
 // database. Expected to have a load balancer
 // in front, i.e. HaProxy
 type Server struct {
-	aliasHandler      AliasHandler
-	returnPathHandler ReturnPathHandler
-	relayHandler      RelayHandler
+	aliasHandler         AliasHandler
+	returnPathHandler    ReturnPathHandler
+	relayHandler         RelayHandler
+	queueEnvelopeHandler QueueEnvelopeHandler
 
 	s *smtp.Server
 }
 
 // Create a new Server, currently only handles inbound
 // connections
-func NewServer(aliasHandler AliasHandler, returnPathHandler ReturnPathHandler, relayHandler RelayHandler) *Server {
+func NewServer(aliasHandler AliasHandler, returnPathHandler ReturnPathHandler, relayHandler RelayHandler, queueEnvelopeHandler QueueEnvelopeHandler) *Server {
 	server := &Server{
-		aliasHandler:      aliasHandler,
-		returnPathHandler: returnPathHandler,
-		relayHandler:      relayHandler,
+		aliasHandler:         aliasHandler,
+		returnPathHandler:    returnPathHandler,
+		relayHandler:         relayHandler,
+		queueEnvelopeHandler: queueEnvelopeHandler,
 	}
 
 	server.s = smtp.NewServer(server)

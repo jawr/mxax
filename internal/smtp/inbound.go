@@ -72,7 +72,7 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 	tcpAddr, ok := s.State.RemoteAddr.(*net.TCPAddr)
 	if !ok {
-		log.Printf("%s - Mail - Unable to case RemoteAddr: %+v", s, s.State.RemoteAddr)
+		log.Printf("%s - Mail - Unable to case RemoteAddr: %+v", s, s.State)
 		return errors.Errorf("network error (%s)", s)
 	}
 

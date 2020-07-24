@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+  <title>MX // Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="https://unpkg.com/tachyons/css/tachyons.min.css">
+  <link rel="stylesheet" href="./assets/style.css">
+  <link rel="stylesheet" href="https://cdn.lineicons.com/2.0/LineIcons.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.css">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
+
+  <body class="sans-serif">
+
+    <div class="cf w-100 vh-100 sticky bg-dark">
+
+      <!-- left panel -->
+      <section class="fl p2 w-10 pa0 ma0 h-100 fixed bg-dark">
+        <div class="db w-100 pb0 mb0 bb b--dark-hilight">
+          <h1 class="primary f3-ns f5 ma0 pa3-ns pa2">MX</h1>
+        </div>
+
+        <ul class="list pa0 ma0 center tracked">
+          <li class="tc-m primary hover-bg-primary hover-dark pl4-l pl2 pt3 pb3 pointer">
+            <a class="no-underline color-inherit" href="#">
+              <i class="lni lni-home mr2"></i> <span class="dn dib-l">Dashboard</span>
+            </a>
+          </li>
+          <li class="tc-m primary hover-bg-primary hover-dark pl4-l pl2 pt3 pb3 pointer">
+            <a class="no-underline color-inherit" href="#">
+              <i class="lni lni-world mr2"></i> <span class="dn dib-l">Domains</span>
+            </a>
+          </li>
+          <li class="tc-m primary hover-bg-primary hover-dark pl4-l pl2 pt3 pb3 pointer">
+            <a class="no-underline color-inherit" href="#">
+              <i class="lni lni-envelope mr2"></i> <span class="dn dib-l">Destinations</span>
+            </a>
+          </li>
+          <li class="tc-m primary hover-bg-primary hover-dark pl4-l pl2 pt3 pb3 pointer">
+            <a class="no-underline color-inherit" href="#">
+              <i class="lni lni-direction mr2"></i> <span class="dn dib-l">Aliases</span>
+            </a>
+          </li>
+          <li class="tc-m primary hover-bg-primary hover-dark pl4-l pl2 pt3 pb3 pointer">
+            <a class="no-underline color-inherit" href="#">
+              <i class="lni lni-files mr2"></i> <span class="dn dib-l">Log</span>
+            </a>
+          </li>
+          <li class="tc-m primary hover-bg-primary hover-dark pl4-l pl2 pt3 pb3 pointer">
+            <a class="no-underline color-inherit" href="#">
+              <i class="lni lni-key mr2"></i> <span class="dn dib-l">Security</span>
+            </a>
+          </li>
+          <li class="tc-m primary hover-bg-primary hover-dark pl4-l pl2 pt3 pb3 pointer">
+            <a class="no-underline color-inherit" href="#">
+              <i class="lni lni-power-switch mr2"></i> <span class="dn dib-l">Logout</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- left pusher -->
+      <section class="fl p2 w-10 pa0 ma0 h-100"></section>
+
+      <!-- right -->
+      <section class="fl w-90 bg-light-gray relative bottom-0">
+
+        <!-- header -->
+        <div class="db w-100 bg-white-80 mv-2">
+          <h2 class="f6 tr ma0 pa2 moon-gray">
+            USERNAME
+          </h2>
+        </div>
+
+        <!-- dashboard -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3">
+            <h3 class="f4 ma0 p0">
+              <i class="lni lni-home mr2"></i> Dashboard
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <div class="h5">
+              <canvas id="activity"></canvas>
+            </div>
+
+          </div>
+        </div>
+
+
+        <!-- domains -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-world mr2"></i> 
+              Domains
+            </h3>
+
+            <a href="#" class="fr pa2 bg-dark primary hover-dark hover-bg-primary no-underline br1">
+              <i class="lni lni-plus"></i>
+            </a>
+          </div>
+
+          <div class="w-100 pa4">
+            <h4 class="f5 pb3">Overview of your domains</h4>
+
+            <div class="overflow-auto">
+              <table class="f6 w-100 center" cellspacing="0">
+                <thead>
+                  <tr>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Domain</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Aliases</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Catch All</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Status</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4"></th>
+                  </tr>
+                </thead>
+                <tbody class="lh-copy">
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">pageup.me</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">5</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline secondary">jess@lawrence.pm</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc pv2 ph4 bg-green pa2 white b">Verified</span></td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="View details"><i class="lni lni-question-circle"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">pageup.uk</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">0</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><i class="lni lni-close"></i></td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc pv2 ph4 bg-red pa2 white b">Unverified</span></td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="View details"><i class="lni lni-question-circle"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">mx.ax</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">12</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline secondary">jess@lawrence.pm</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc bg-orange pv2 ph4 white b">Expiring</span></td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="View details"><i class="lni lni-question-circle"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">tcp.io</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">0</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline secondary">jess@lawrence.pm</a></td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc bg-orange pv2 ph4 white b">Incomplete</span></td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="View details"><i class="lni lni-question-circle"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- add domain -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-world mr2"></i> 
+              Add Domain
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">We will create a 2048 bit DKIM key and provide you with the necessary DKIM, DMARC and SPF DNS records to create in your registrar.</p>
+
+            <form method="post" accept-charset="utf-8">
+              <fieldset class="ba b--transparent ph0 mh0">
+                <legend class="ph0 mh0 fw6 clip">Domain</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="domain">Domain</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="domain" />
+                </div>
+
+                    <div class="mt4">
+                      <input class="pa2 ba bw0 input-reset primary bg-dark hover-dark hover-bg-primary br1 pointer f5" type="submit" value="Add" />
+                    </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- verify domain -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-certificate mr2"></i> 
+              Verify Domain
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">Before you can start using the Domain, please verify that you have permission to you use it by creating the following CNAME record.</p>
+
+            <div class="overflow-auto mb4">
+              <table class="f6 w-100 center" cellspacing="0">
+                <thead>
+                  <tr>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Host</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Type</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Value</th>
+                  </tr>
+                </thead>
+                <tbody class="lh-copy">
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20">mx-d33db84f12</td>
+                    <td class="pv3 pr3 bb b--black-20">CNAME</td>
+                    <td class="pv3 pr3 bb b--black-20">mx-d33db84f12.mx.ax</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <a href="#" class="pa2 bg-dark primary hover-dark hover-bg-primary no-underline br1 f5">
+              <i class="lni lni-magnifier mr2"></i>
+              Check
+            </a>
+          </div>
+        </div>
+
+        <!-- view domain -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-question-circle mr2"></i> 
+              Domain Details
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">Please make sure that you have the following records. Any CNAME records used for verification can be removed.</p>
+
+            <div class="overflow-auto mb4">
+              <table class="f6 w-100 center" cellspacing="0">
+                <thead>
+                  <tr>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Host</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Type</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Value</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="lh-copy">
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20">@</td>
+                    <td class="pv3 pr3 bb b--black-20">TXT</td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="secondary no-underline">
+                        "v=spf1 include:spf.mx.ax ~all"
+                      </a>
+                    </td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc pv2 ph4 bg-green pa2 white b">OK</span></td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20">_dmarc</td>
+                    <td class="pv3 pr3 bb b--black-20">TXT</td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="secondary no-underline">
+                        "v=DMARC1; p=reject; sp=reject; pct=100; aspf=r; adkim=s"
+                      </a>
+                    </td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc pv2 ph4 bg-red pa2 white b">Missing</span></td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20">mxax._domainkey</td>
+                    <td class="pv3 pr3 bb b--black-20">TXT</td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="secondary no-underline">
+                        "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtwMrC87SkcjFAbW9+Aq91fwFlAsusVDfJrgcGKS1F6pdebXwpGqi8plFjLAawq1bZaOoyV2dQ8s" "iHGunHMEXrtdp5KlNERRyd99JGscnlwakuUeLPh3aKu78bYx9SqJFlmzMKdyY6yq8arxXmlRmhRQKjogJTbj8qQJMExjusQN8f34ZljSM+h8L8gIgx7OUhpPuG8uIXo" "/EMF5oCdNlUr7K5sAuG2vaZHa3x9sqcwlbmSa5Ti4" "NVqxRzDjESWBBvzguOHD8IRwUY+IB5u6sXxKQeWYZx2RR+xm0zl0fmn2w3XwtGHZGjClfokwkxXNEzyhdajqlRt3kqXe31LVKfQIDAQAB"
+                      </a>
+                    </td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc pv2 ph4 bg-green pa2 white b">OK</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="f7 pb3 lh-copy">Click on a record value to copy it to the clipboard.</p>
+          </div>
+        </div>
+
+        <!-- destinations -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-envelope mr2"></i> Destinations
+            </h3>
+            <a href="#" class="fr pa2 bg-dark primary hover-dark hover-bg-primary no-underline br1">
+              <i class="lni lni-plus"></i>
+            </a>
+          </div>
+
+          <div class="w-100 pa4">
+            <h4 class="f5 pb3">Overview of your destinations</h4>
+
+            <div class="overflow-auto">
+              <table class="f6 w-100 center" cellspacing="0">
+                <thead>
+                  <tr>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Address</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Aliases</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4"></th>
+                  </tr>
+                </thead>
+                <tbody class="lh-copy">
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20">dean@companywithalongdomain.co</td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline secondary">5</a></td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="Edit"><i class="lni lni-pencil"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- create alias -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-envelope mr2"></i> 
+              Create Destination
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <form method="post" accept-charset="utf-8">
+              <fieldset class="ba b--transparent ph0 mh0">
+
+                <legend class="ph0 mh0 fw6 clip">Address</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="address">Address</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="address" />
+                </div>
+
+                <div class="mt4">
+                  <input class="pa2 ba bw0 input-reset primary bg-dark hover-dark hover-bg-primary br1 pointer f5" type="submit" value="Create" />
+                </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- aliases -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-direction mr2"></i> Aliases
+            </h3>
+            <a href="#" class="fr pa2 bg-dark primary hover-dark hover-bg-primary no-underline br1">
+              <i class="lni lni-plus"></i>
+            </a>
+          </div>
+
+          <div class="w-100 pa4">
+            <h4 class="f5 pb3">Overview of your aliases</h4>
+
+            <div class="overflow-auto">
+              <table class="f6 w-100 center" cellspacing="0">
+                <thead>
+                  <tr>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Domain</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Rule</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Destination</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4"></th>
+                  </tr>
+                </thead>
+                <tbody class="lh-copy">
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">pageup.uk</a></td>
+                    <td class="pv3 pr3 bb b--black-20">je[fs][fs]</td>
+                    <td class="pv3 pr3 bb b--black-20">dean@companywithalongdomain.co</td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="Edit"><i class="lni lni-pencil"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">pageup.uk</a></td>
+                    <td class="pv3 pr3 bb b--black-20">admin</td>
+                    <td class="pv3 pr3 bb b--black-20">dean@gmail.com</td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="Edit"><i class="lni lni-pencil"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link secondary">pageup.uk</a></td>
+                    <td class="pv3 pr3 bb b--black-20">(cloudflare|spotify)</td>
+                    <td class="pv3 pr3 bb b--black-20">somewhere@else.com</td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+                      <a href="#" class="link secondary pr2" title="Edit"><i class="lni lni-pencil"></i></a>
+                      <a href="#" class="link secondary pr2" title="Delete"><i class="lni lni-archive"></i></a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- create alias -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-direction mr2"></i> 
+              Create Alias
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">Using regexp <a href="#" class="secondary no-underline"><i class="lni lni-question-circle lni-sm"></i></a> create an alias for a destination.</p>
+
+            <form method="post" accept-charset="utf-8">
+              <fieldset class="ba b--transparent ph0 mh0">
+
+                <legend class="ph0 mh0 fw6 clip">Domain</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="domain">Domain</label>
+                  <select class="pa2 ba bg-transparent w-100 measure" name="domain">
+                    <option value="pageup.me">pageup.me</option>
+                    <option value="pageup.uk">pageup.uk</option>
+                    <option value="mx.ax">mx.ax</option>
+                    <option value="tcp.io">tcp.io</option>
+                  </select>
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">Rule</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="rule">Rule</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="rule" />
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">Destination</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="domain">Destination</label>
+                  <select class="pa2 ba bg-transparent w-100 measure mr2" name="destination">
+                    <option value="jess@lawrence.pm">jess@lawrence.pm</option>
+                  </select>
+
+                  <a href="#" class="primary bg-dark hover-dark hover-bg-primary no-underline f6 pa2 br1"><i class="lni lni-plus"></i></a>
+                </div>
+
+                <div class="mt4">
+                  <input class="pa2 ba bw0 input-reset primary bg-dark hover-dark hover-bg-primary br1 pointer f5" type="submit" value="Create" />
+                </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- log -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-files mr2"></i> 
+              Log
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">An overview of your accounts inbound/outbound activity. Bounces and Failures are recorded here to help identify messages that were undeliverable. If you want to enable additional logging for succesful Inbound/Outbound, please enable statistics.</p>
+
+            <div class="overflow-auto">
+              <table class="f6 w-100 center" cellspacing="0">
+                <thead>
+                  <tr>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">From</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">To</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Match</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">At</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Status</th>
+                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4"></th>
+                  </tr>
+                </thead>
+                <tbody class="lh-copy">
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20">info@pageup.me</td>
+                    <td class="pv3 pr3 bb b--black-20">jess@mx.ax</td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline secondary">yes</a></td>
+                    <td class="pv3 pr3 bb b--black-20">14:29 01/02/20</td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc pv2 ph4 bg-green pa2 white b">Successful</span></td>
+                    <td class="pv3 pr3 bb b--black-20">
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pv3 pr3 bb b--black-20">info@pageup.me</td>
+                    <td class="pv3 pr3 bb b--black-20">jess@mx.ax</td>
+                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline secondary">yes</a></td>
+                    <td class="pv3 pr3 bb b--black-20">14:29 01/02/20</td>
+                    <td class="pv3 pr3 bb b--black-20"><span class="db br1 mw3 tc pv2 ph4 bg-red pa2 white b">Failure</span></td>
+                    <td class="pv3 pr3 bb b--black-20">
+                      <a href="#" class="link secondary pr2" title="View details"><i class="lni lni-question-circle"></i></a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- set security -->
+        <div class="mw9 center br1 bg-white mh3 mv4">
+          <div class="w-100 bb b--light-gray pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-key mr2"></i> 
+              SMTP Security 
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">Change your SMTP Password. Please also enter your Accoutn password for additional security.</p>
+
+            <form method="post" accept-charset="utf-8">
+              <fieldset class="ba b--transparent ph0 mh0">
+
+                <legend class="ph0 mh0 fw6 clip">Password</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="password">Account Password</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="password" />
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">SMTP Password</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="smtp-password">SMTP Password</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="smtp-password" />
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">Confirm SMTP Password</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="confirm-smtp-password">Confirm SMTP Password</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="confirm-smtp-password" />
+                </div>
+
+                <div class="mt4">
+                  <input class="pa2 ba bw0 input-reset primary bg-dark hover-dark hover-bg-primary br1 pointer f5" type="submit" value="Set" />
+                </div>
+            </form>
+          </div>
+        </div>
+
+      </section>
+
+
+    </div>
+
+    <script>
+      var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      var config = {
+        type: 'line',
+        data: {
+          labels: MONTHS,
+          datasets: [
+          {
+            label: 'Inbound',
+            borderColor: '#357EDD',
+            data: [94,42,71,54,18,62,82,8,19,24,45,88],
+            fill: false,
+          },
+          {
+            label: 'Outbound',
+            borderColor: '#19A974',
+            data: [55,12,10,99,4,6,18,20,33,9,1,2],
+            fill: false,
+          },
+          {
+            label: 'Bounced',
+            borderColor: '#FF6300',
+            data: [1,0,0,1,2,3,4,0,0,0,1,0],
+            fill: false,
+          },
+          {
+            label: 'Rejected',
+            borderColor: '#FF4136',
+            data: [1,0,0,1,0,1,0,2,0,1,1,3],
+            fill: false,
+          },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          tooltips: {
+            mode: 'index',
+            intersect: false,
+          },
+          hover: {
+            mode: 'nearest',
+            intersect: true
+          },
+          scales: {
+            xAxes: [{
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: 'Month'
+              }
+            }],
+            yAxes: [{
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: 'Value'
+              }
+            }]
+          }
+        }
+      };
+
+      window.onload = function() {
+        var ctx = document.getElementById('activity').getContext('2d');
+        window.myLine = new Chart(ctx, config);
+      };
+
+    </script>
+  </body>
+</html>

@@ -1,0 +1,51 @@
+{{define "page"}}
+        <div class="mw9 center br1 bg-white mh3 mv3">
+          <div class="w-100 bb b--near-white pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-direction mr2"></i> 
+              Create Alias
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">Using regexp <a href="#" class="navy no-underline"><i class="lni lni-question-circle lni-sm"></i></a> create an alias for a destination.</p>
+
+            <form method="post" accept-charset="utf-8">
+              <fieldset class="ba b--transparent ph0 mh0">
+
+                <legend class="ph0 mh0 fw6 clip">Domain</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="domain">Domain</label>
+                  <select class="pa2 ba bg-transparent w-100 measure" name="domain">
+                    <option value="pageup.me">pageup.me</option>
+                    <option value="pageup.uk">pageup.uk</option>
+                    <option value="mx.ax">mx.ax</option>
+                    <option value="tcp.io">tcp.io</option>
+                  </select>
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">Rule</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="rule">Rule</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="rule" />
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">Destination</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="domain">Destination</label>
+                  <select class="pa2 ba bg-transparent w-100 measure mr2" name="destination">
+                    <option value="jess@lawrence.pm">jess@lawrence.pm</option>
+                  </select>
+
+                  <a href="#" class="pa2 bg-light-green dark-green hover-b--dark-green ba b--washed-green no-underline br1">
+                      <i class="lni lni-plus"></i>
+                  </a>
+                </div>
+
+                <div class="mt4">
+                      <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Create" />
+                </div>
+            </form>
+          </div>
+        </div>
+{{end}}

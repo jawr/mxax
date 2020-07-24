@@ -1,0 +1,26 @@
+{{define "page"}}
+        <div class="mw9 center br1 bg-white mh3 mv3">
+          <div class="w-100 bb b--near-white pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-envelope mr2"></i> 
+              Create Destination
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <form method="post" accept-charset="utf-8">
+              <fieldset class="ba b--transparent ph0 mh0">
+
+                <legend class="ph0 mh0 fw6 clip">Address</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="address">Address</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="address" />
+                </div>
+
+                <div class="mt4">
+                    <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Create" />
+                </div>
+            </form>
+          </div>
+        </div>
+        {{end}}

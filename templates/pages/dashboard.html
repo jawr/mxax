@@ -1,0 +1,92 @@
+{{define "stylesheets"}}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.css">
+{{end}}
+
+{{define "page"}}
+<div class="mw9 center br1 bg-white mh3 mv3">
+  <div class="w-100 bb b--near-white pa3">
+    <h3 class="f4 ma0 p0">
+      <i class="lni lni-home mr2"></i> Dashboard
+    </h3>
+  </div>
+
+  <div class="w-100 pa4">
+    <div class="h5">
+      <canvas id="activity"></canvas>
+    </div>
+
+  </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+    <script>
+      var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      var config = {
+        type: 'line',
+        data: {
+          labels: MONTHS,
+          datasets: [
+          {
+            label: 'Inbound',
+            borderColor: '#357EDD',
+            data: [94,42,71,54,18,62,82,8,19,24,45,88],
+            fill: false,
+          },
+          {
+            label: 'Outbound',
+            borderColor: '#19A974',
+            data: [55,12,10,99,4,6,18,20,33,9,1,2],
+            fill: false,
+          },
+          {
+            label: 'Bounced',
+            borderColor: '#FF6300',
+            data: [1,0,0,1,2,3,4,0,0,0,1,0],
+            fill: false,
+          },
+          {
+            label: 'Rejected',
+            borderColor: '#FF4136',
+            data: [1,0,0,1,0,1,0,2,0,1,1,3],
+            fill: false,
+          },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          tooltips: {
+            mode: 'index',
+            intersect: false,
+          },
+          hover: {
+            mode: 'nearest',
+            intersect: true
+          },
+          scales: {
+            xAxes: [{
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: 'Month'
+              }
+            }],
+            yAxes: [{
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: 'Value'
+              }
+            }]
+          }
+        }
+      };
+
+      window.onload = function() {
+        var ctx = document.getElementById('activity').getContext('2d');
+        window.myLine = new Chart(ctx, config);
+      };
+
+    </script>
+    {{end}}

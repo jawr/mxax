@@ -1,0 +1,35 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+  <title>{{block "title" .}}MX{{end}}</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="https://unpkg.com/tachyons/css/tachyons.min.css">
+  <link rel="stylesheet" href="./assets/style.css">
+  <link rel="stylesheet" href="https://cdn.lineicons.com/2.0/LineIcons.css">
+
+  {{block "stylesheets" .}}{{end}}
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
+
+  <body class="sans-serif dark-gray">
+
+    <div class="cf w-100 vh-100 sticky bg-light-green">
+
+      <!-- left -->
+      {{template "nav" .}}
+
+      <!-- right -->
+      <section class="fl w-90 bg-white h-100">
+        {{template "header" .}}
+        {{template "page" .}}
+      </section>
+
+    </div>
+
+    {{block "scripts" .}}{{end}}
+
+  </body>
+</html>
+{{end}}

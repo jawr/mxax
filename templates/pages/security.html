@@ -1,0 +1,40 @@
+{{define "page"}}
+        <div class="mw9 center br1 bg-white mh3 mv3">
+          <div class="w-100 bb b--near-white pa3 cf">
+            <h3 class="f4 ma0 p0 fl">
+              <i class="lni lni-key mr2"></i> 
+              SMTP Security 
+            </h3>
+          </div>
+
+          <div class="w-100 pa4">
+            <p class="f5 pb3 lh-copy">Change your SMTP Password. Please also enter your Accoutn password for additional security.</p>
+
+            <form method="post" accept-charset="utf-8">
+              <fieldset class="ba b--transparent ph0 mh0">
+
+                <legend class="ph0 mh0 fw6 clip">Password</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="password">Account Password</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="password" />
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">SMTP Password</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="smtp-password">SMTP Password</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="smtp-password" />
+                </div>
+
+                <legend class="ph0 mh0 fw6 clip">Confirm SMTP Password</legend>
+                <div class="mt3">
+                  <label class="db fw4 lh-copy f6" for="confirm-smtp-password">Confirm SMTP Password</label>
+                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="confirm-smtp-password" />
+                </div>
+
+                <div class="mt4">
+                      <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Set" />
+                </div>
+            </form>
+          </div>
+        </div>
+{{end}}

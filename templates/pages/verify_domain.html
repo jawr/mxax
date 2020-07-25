@@ -3,7 +3,7 @@
   <div class="w-100 bb b--near-white pa3 cf">
     <h3 class="f4 ma0 p0 fl">
       <i class="lni lni-certificate mr2"></i> 
-      Verify Domain
+      Verify {{.Domain.Name}}
     </h3>
   </div>
 
@@ -21,18 +21,23 @@
         </thead>
         <tbody class="lh-copy">
           <tr>
-            <td class="pv3 pr3 bb b--black-20">mx-d33db84f12</td>
+            <td class="pv3 pr3 bb b--black-20">{{.Domain.VerifyCode}}</td>
             <td class="pv3 pr3 bb b--black-20">CNAME</td>
-            <td class="pv3 pr3 bb b--black-20">mx-d33db84f12.mx.ax</td>
+            <td class="pv3 pr3 bb b--black-20">{{.Domain.VerifyCode}}.mx.ax.</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <a href="#" class="pa2 bg-light-green dark-green hover-b--dark-green ba b--washed-green no-underline br1 f5">
-      <i class="lni lni-magnifier mr2"></i>
-      Check
-    </a>
+    <form method="post" accept-charset="utf-8" action="/domain/{{.Domain.Name}}/verify">
+          <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Check" />
+    </form>
+
+    {{if hasField . "Errors"}}
+      {{range .Errors.All}}
+        <p class="red">{{.}}</p>
+      {{end}}
+    {{end}}
   </div>
 </div>
 {{end}}

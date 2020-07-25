@@ -1,4 +1,3 @@
-INSERT INTO accounts (username, password) VALUES ('jess@lawrence.pm', ''::BYTEA);
 INSERT INTO domains (account_id, name, verify_code, verified_at, expires_at) VALUES (1, 'pageup.me', 'mxax-d3adb3ef-ccdd', NOW(), CURRENT_DATE+interval '1 year');
 INSERT INTO domains (account_id, name, verify_code, verified_at, expires_at) VALUES (1, 'lawrence.pm', 'mxax-d3adb3ef-eegg', NULL, CURRENT_DATE+interval '1 year');
 INSERT INTO dkim_keys (domain_id, private_key, public_key) VALUES (

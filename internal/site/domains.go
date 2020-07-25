@@ -9,6 +9,7 @@ import (
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/julienschmidt/httprouter"
+	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 )
 
@@ -181,20 +182,116 @@ func (s *Site) postAddDomain() (*route, error) {
 				}
 			}
 
-			// insert
-			_, err = s.db.Exec(
+			// insert, first create a transaction so we keep a clean state on
+			// an error
+			tx, err := s.db.Begin(req.Context())
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Insert"))
+				return
+			}
+			// TODO:
+			// will this context cancel the rollback??
+			defer tx.Rollback(req.Context())
+
+			var id int
+			err = tx.QueryRow(
 				req.Context(),
 				`
 			INSERT INTO domains (account_id, name, verify_code, expires_at) 
 				VALUES ($1, $2, $3, $4)
+				RETURNING id
 				`,
 				accountID,
 				name,
 				verifyCode,
 				expiresAt,
-			)
+			).Scan(&id)
 			if err != nil {
 				s.handleError(w, r, errors.WithMessage(err, "Insert"))
+				return
+			}
+
+			// create dkim record
+			dkimKey, err := account.NewDkimKey(id)
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "NewDkimKey"))
+				return
+			}
+
+			// insert dkim
+			_, err = tx.Exec(
+				req.Context(),
+				"INSERT INTO dkim_keys (domain_id, private_key, public_key) VALUES ($1, $2, $3)",
+				id,
+				dkimKey.PrivateKey,
+				dkimKey.PublicKey,
+			)
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Insert DkimKey"))
+				return
+			}
+
+			// insert dkim record
+			_, err = tx.Exec(
+				req.Context(),
+				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+				id,
+				"@",
+				"TXT",
+				dkimKey.String(),
+			)
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Insert DkimKey Record"))
+				return
+			}
+
+			// insert mx
+			_, err = tx.Exec(
+				req.Context(),
+				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+				id,
+				"@",
+				"MX",
+				"10 mx.pageup.uk.",
+			)
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Insert MX Record"))
+				return
+			}
+
+			// TODO
+			// host a second mx for redundancy
+
+			// insert spf
+			_, err = tx.Exec(
+				req.Context(),
+				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+				id,
+				"@",
+				"TXT",
+				`"v=spf1 include:spf.pageup.uk ~all"`,
+			)
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Insert SPF Record"))
+				return
+			}
+
+			// insert dmarc
+			_, err = tx.Exec(
+				req.Context(),
+				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+				id,
+				"_dmarc",
+				"TXT",
+				`"v=DMARC1; p=quarantine"`,
+			)
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Insert DkimKey Record"))
+				return
+			}
+
+			if err := tx.Commit(req.Context()); err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Commit"))
 				return
 			}
 
@@ -225,12 +322,7 @@ func (s *Site) getDomain() (*route, error) {
 		return r, err
 	}
 
-	viewCompleteTmpl, err := s.loadTemplate("templates/pages/view_complete_domain.html")
-	if err != nil {
-		return r, err
-	}
-
-	viewIncompleteTmpl, err := s.loadTemplate("templates/pages/view_incomplete_domain.html")
+	tmpl, err := s.loadTemplate("templates/pages/view_domain.html")
 	if err != nil {
 		return r, err
 	}
@@ -278,7 +370,8 @@ func (s *Site) getDomain() (*route, error) {
 			return
 		}
 
-		isComplete := true
+		// check if domain status is complete
+		isComplete := len(d.Domain.Records) == 4
 		for _, rr := range d.Domain.Records {
 			if !rr.IsComplete() {
 				isComplete = false
@@ -294,19 +387,19 @@ func (s *Site) getDomain() (*route, error) {
 
 		// if incomplete
 		if !isComplete {
-			s.renderTemplate(w, viewIncompleteTmpl, r, d)
+			http.Redirect(w, req, fmt.Sprintf("/domain/%s/check", d.Domain.Name), http.StatusFound)
 			return
 		}
 
 		// finally complete
-		s.renderTemplate(w, viewCompleteTmpl, r, d)
+		s.renderTemplate(w, tmpl, r, d)
 	})
 
 	return r, nil
 }
 
 // check and see if the associated verify code exists
-func (s *Site) postCheckDomain() (*route, error) {
+func (s *Site) postVerifyDomain() (*route, error) {
 	r := &route{
 		path:   "/domain/:domain/verify",
 		method: "POST",
@@ -322,6 +415,13 @@ func (s *Site) postCheckDomain() (*route, error) {
 	type data struct {
 		Route  string
 		Errors FormErrors
+		Domain account.Domain
+	}
+
+	// go net.LookupCNAME follows the Canonical chain
+	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if err != nil {
+		return r, errors.WithMessage(err, "dns.ClientConfigFromFile")
 	}
 
 	// actual handler
@@ -332,7 +432,124 @@ func (s *Site) postCheckDomain() (*route, error) {
 			Errors: newFormErrors(),
 		}
 
+		err := pgxscan.Get(
+			req.Context(),
+			s.db,
+			&d.Domain,
+			"SELECT * FROM domains WHERE account_id = $1 AND name = $2",
+			accountID,
+			ps.ByName("domain"),
+		)
+		if err != nil {
+			s.handleError(w, r, err)
+			return
+		}
+
+		if err := d.Domain.CheckVerifyCode(dnsConfig); err != nil {
+			d.Errors.Add("", err.Error())
+		}
+
+		if d.Errors.Error() {
+			s.renderTemplate(w, tmpl, r, d)
+			return
+		}
+
+		_, err = s.db.Exec(
+			req.Context(),
+			"UPDATE domains SET verified_at = NOW() WHERE id = $1",
+			d.Domain.ID,
+		)
+		if err != nil {
+			s.handleError(w, r, err)
+			return
+		}
+
+		http.Redirect(w, req, "/domains", http.StatusFound)
+	})
+
+	return r, nil
+}
+
+// check the records associated with a domain exist
+func (s *Site) getCheckDomain() (*route, error) {
+	r := &route{
+		path:   "/domain/:domain/check",
+		method: "GET",
+	}
+
+	// setup templates
+	tmpl, err := s.loadTemplate("templates/pages/check_domain.html")
+	if err != nil {
+		return r, err
+	}
+
+	// definte template data
+	type data struct {
+		Route   string
+		Errors  FormErrors
+		Domain  account.Domain
+		Records []account.Record
+	}
+
+	// go net.LookupCNAME follows the Canonical chain
+	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if err != nil {
+		return r, errors.WithMessage(err, "dns.ClientConfigFromFile")
+	}
+
+	// actual handler
+	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+
+		d := data{
+			Route:  "domains",
+			Errors: newFormErrors(),
+		}
+
+		err := pgxscan.Get(
+			req.Context(),
+			s.db,
+			&d.Domain,
+			"SELECT * FROM domains WHERE account_id = $1 AND name = $2 AND verified_at IS NOT NULL",
+			accountID,
+			ps.ByName("domain"),
+		)
+		if err != nil {
+			s.handleError(w, r, err)
+			return
+		}
+
+		err = pgxscan.Select(
+			req.Context(),
+			s.db,
+			&d.Records,
+			"SELECT * FROM records WHERE domain_id = $1",
+			d.Domain.ID,
+		)
+		if err != nil {
+			s.handleError(w, r, err)
+			return
+		}
+
+		for _, rr := range d.Records {
+			if err := rr.Check(d.Domain.Name, dnsConfig); err != nil {
+				d.Errors.Add(rr.Host, err.Error())
+				continue
+			}
+
+			_, err = s.db.Exec(
+				req.Context(),
+				"UPDATE records SET last_verified_at = NOW() WHERE id = $1",
+				rr.ID,
+			)
+			if err != nil {
+				s.handleError(w, r, err)
+				return
+			}
+		}
+
 		s.renderTemplate(w, tmpl, r, d)
+		return
+
 	})
 
 	return r, nil

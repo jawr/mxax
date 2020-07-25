@@ -17,5 +17,6 @@ require (
 	github.com/jhillyerd/enmime v0.8.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/likexian/whois-go v1.7.1
+	github.com/miekg/dns v1.1.30
 	github.com/pkg/errors v0.9.1
 )

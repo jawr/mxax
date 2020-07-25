@@ -1,0 +1,48 @@
+{{define "page"}}
+<div class="mw9 center br1 mh3 mv3">
+  <div class="w-100 bb b--near-white pa3 cf">
+    <h3 class="f4 ma0 p0 fl">
+      <i class="lni lni-question-circle mr2"></i> 
+      {{.Domain.Name}} Details
+    </h3>
+  </div>
+
+  <div class="w-100 pa4">
+    <p class="f5 pb3 lh-copy">Please make sure that you have the following records. Any CNAME records used for verification can be removed.</p>
+
+    <div class="overflow-auto mb4">
+      <table class="f6 w-100 center" cellspacing="0">
+        <thead>
+          <tr>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Host</th>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Type</th>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Value</th>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4">Status</th>
+          </tr>
+        </thead>
+        <tbody class="lh-copy">
+          {{range .Records}}
+          <tr>
+            <td class="pv3 pr3 bb b--black-20">{{.Host}}</td>
+            <td class="pv3 pr3 bb b--black-20">{{.Rtype}}</td>
+            <td class="pv3 pr3 bb b--black-20">
+              <a href="#" class="navy no-underline">
+                {{.Value}}
+              </a>
+            </td>
+            <td class="pv3 pr3 bb b--black-20">
+              {{if $.Errors.HasError .Value}}
+              <span class="br1 f7 tc pv1 ph2 ba b--green green b">Ready</span></td>
+            {{else}}
+              <span class="br1 f7 tc pv1 ph2 ba b--red red b">Not set</span></td>
+            {{end}}
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="f7 pb3 lh-copy">Click on a record value to copy it to the clipboard.</p>
+  </div>
+</div>
+{{end}}

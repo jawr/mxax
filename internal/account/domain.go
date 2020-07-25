@@ -1,11 +1,15 @@
 package account
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgtype"
 	whoisParser "github.com/jawr/whois-parser-go"
 	"github.com/likexian/whois-go"
+	"github.com/miekg/dns"
+	"github.com/pkg/errors"
 )
 
 // Domain is attached to an Account and must
@@ -42,6 +46,46 @@ func (rr Record) IsComplete() bool {
 
 }
 
+func (r Record) Check(domain string, config *dns.ClientConfig) error {
+	client := new(dns.Client)
+
+	record := fmt.Sprintf(
+		"%s.%s.",
+		r.Host,
+		domain,
+	)
+
+	record = strings.TrimPrefix(record, "@.")
+
+	dnsType, ok := dns.StringToType[r.Rtype]
+	if !ok {
+		return errors.Errorf("unknown record type '%s'", r.Rtype)
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion(record, dnsType)
+	m.RecursionDesired = true
+
+	if len(config.Servers) == 0 {
+		return errors.New("no dns servers found.")
+	}
+
+	resp, _, err := client.Exchange(m, config.Servers[0]+":"+config.Port)
+	if err != nil {
+		return errors.WithMessage(err, "Exchange")
+	}
+
+	if len(resp.Answer) == 0 {
+		return errors.New("No record found.")
+	}
+
+	if len(resp.Answer) > 1 {
+		return errors.New("Too many records found.")
+	}
+
+	return errors.New(resp.Answer[0].String())
+}
+
 func GetDomainExpirationDate(name string) (time.Time, error) {
 	whoisResult, err := whois.Whois(name)
 	if err != nil {
@@ -55,4 +99,42 @@ func GetDomainExpirationDate(name string) (time.Time, error) {
 	}
 
 	return whoisParsed.Domain.ExpirationDate, nil
+}
+
+func (d Domain) CheckVerifyCode(config *dns.ClientConfig) error {
+	client := new(dns.Client)
+
+	expected := fmt.Sprintf(
+		"%s.%s",
+		d.VerifyCode,
+		d.Name,
+	)
+
+	m := new(dns.Msg)
+	m.SetQuestion(expected+".", dns.TypeCNAME)
+	m.RecursionDesired = true
+
+	if len(config.Servers) == 0 {
+		return errors.New("no dns servers found.")
+	}
+
+	r, _, err := client.Exchange(m, config.Servers[0]+":"+config.Port)
+	if err != nil {
+		return errors.WithMessage(err, "Exchange")
+	}
+
+	if len(r.Answer) == 0 {
+		return errors.New("No record found.")
+	}
+
+	if len(r.Answer) > 1 {
+		return errors.New("Too many records found.")
+	}
+
+	found := r.Answer[0].(*dns.CNAME).Target
+	if strings.ToLower(found) != strings.ToLower(fmt.Sprintf("%s.mx.ax.", d.VerifyCode)) {
+		return errors.New("Does not match")
+	}
+
+	return nil
 }

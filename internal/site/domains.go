@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jawr/mxax/internal/account"
@@ -16,7 +17,7 @@ func (s *Site) getAddDomain() (*route, error) {
 	return s.templateResponse("/domains/add", "GET", "domains", "templates/pages/add_domain.html")
 }
 
-// others
+// display overview information about all domains
 func (s *Site) getDomains() (*route, error) {
 	r := &route{
 		path:   "/domains",
@@ -37,6 +38,7 @@ func (s *Site) getDomains() (*route, error) {
 		Records  int
 		Status   string
 		Expiring bool
+		Expired  bool
 	}
 
 	// definte template data
@@ -84,17 +86,24 @@ func (s *Site) getDomains() (*route, error) {
 			} else {
 				d.Domains[idx].Status = "ready"
 			}
+
+			if time.Until(dom.ExpiresAt.Time) < 0 {
+				d.Domains[idx].Expired = true
+			} else if time.Until(dom.ExpiresAt.Time) < time.Hour*24*30 {
+				d.Domains[idx].Expiring = true
+			}
 		}
 
-		if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
-			s.handleError(w, r, err)
-			return
-		}
+		s.renderTemplate(w, tmpl, r, d)
 	})
 
 	return r, nil
 }
 
+// add a domain
+// if there are validation issues it will return
+// the add page and display said errors
+// otherwise it will return to the main domains page
 func (s *Site) postAddDomain() (*route, error) {
 	r := &route{
 		path:   "/domains/add",
@@ -195,10 +204,135 @@ func (s *Site) postAddDomain() (*route, error) {
 		}
 
 		// otherwise display errors
-		if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
+		s.renderTemplate(w, tmpl, r, d)
+	})
+
+	return r, nil
+}
+
+// get specific information about a domain
+// depending on the state will display
+// different templates
+func (s *Site) getDomain() (*route, error) {
+	r := &route{
+		path:   "/domain/:domain",
+		method: "GET",
+	}
+
+	// setup templates
+	verifyTmpl, err := s.loadTemplate("templates/pages/verify_domain.html")
+	if err != nil {
+		return r, err
+	}
+
+	viewCompleteTmpl, err := s.loadTemplate("templates/pages/view_complete_domain.html")
+	if err != nil {
+		return r, err
+	}
+
+	viewIncompleteTmpl, err := s.loadTemplate("templates/pages/view_incomplete_domain.html")
+	if err != nil {
+		return r, err
+	}
+
+	type Domain struct {
+		account.Domain
+		Records []account.Record
+	}
+
+	// definte template data
+	type data struct {
+		Route  string
+		Domain Domain
+	}
+
+	// actual handler
+	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+
+		d := data{
+			Route: "domains",
+		}
+
+		err := pgxscan.Get(
+			req.Context(),
+			s.db,
+			&d.Domain,
+			"SELECT * FROM domains WHERE account_id = $1 AND name = $2",
+			accountID,
+			ps.ByName("domain"),
+		)
+		if err != nil {
 			s.handleError(w, r, err)
 			return
 		}
+
+		err = pgxscan.Select(
+			req.Context(),
+			s.db,
+			&d.Domain.Records,
+			"SELECT * FROM records WHERE domain_id = $1",
+			d.Domain.ID,
+		)
+		if err != nil {
+			s.handleError(w, r, err)
+			return
+		}
+
+		isComplete := true
+		for _, rr := range d.Domain.Records {
+			if !rr.IsComplete() {
+				isComplete = false
+				break
+			}
+		}
+
+		// verify domain
+		if d.Domain.VerifiedAt.Time.IsZero() && isComplete {
+			s.renderTemplate(w, verifyTmpl, r, d)
+			return
+		}
+
+		// if incomplete
+		if !isComplete {
+			s.renderTemplate(w, viewIncompleteTmpl, r, d)
+			return
+		}
+
+		// finally complete
+		s.renderTemplate(w, viewCompleteTmpl, r, d)
+	})
+
+	return r, nil
+}
+
+// check and see if the associated verify code exists
+func (s *Site) postCheckDomain() (*route, error) {
+	r := &route{
+		path:   "/domain/:domain/verify",
+		method: "POST",
+	}
+
+	// setup templates
+	tmpl, err := s.loadTemplate("templates/pages/verify_domain.html")
+	if err != nil {
+		return r, err
+	}
+
+	// definte template data
+	type data struct {
+		Route  string
+		Errors FormErrors
+	}
+
+	// actual handler
+	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+
+		d := data{
+			Route:  "domains",
+			Errors: newFormErrors(),
+		}
+
+		s.renderTemplate(w, tmpl, r, d)
 	})
 
 	return r, nil

@@ -28,7 +28,9 @@
         <tbody class="lh-copy">
           {{range .Domains}}
           <tr>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">{{.Name}}</a></td>
+            <td class="pv3 pr3 bb b--black-20">
+              <a href="/domain/{{.Name}}" class="link navy">{{.Name}}</a>
+            </td>
             <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">{{.Aliases}}</a></td>
             <td class="pv3 pr3 bb b--black-20">
               <a href="#" class="link navy">

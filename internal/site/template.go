@@ -1,6 +1,7 @@
 package site
 
 import (
+	"bytes"
 	"html/template"
 	"net/http"
 
@@ -8,6 +9,23 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )
+
+func (s *Site) renderTemplate(w http.ResponseWriter, t *template.Template, r *route, d interface{}) {
+	b := s.templateBufferPool.Get().(*bytes.Buffer)
+	defer s.templateBufferPool.Put(b)
+
+	b.Reset()
+
+	if err := t.ExecuteTemplate(b, "base", d); err != nil {
+		s.handleError(w, r, err)
+		return
+	}
+
+	// write headers
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	b.WriteTo(w)
+}
 
 func (s *Site) loadTemplate(path string) (*template.Template, error) {
 
@@ -57,10 +75,7 @@ func (s Site) templateResponse(path, method, routeName, templatePath string) (*r
 			Route: routeName,
 		}
 
-		if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
-			s.handleError(w, r, err)
-			return
-		}
+		s.renderTemplate(w, tmpl, r, d)
 	}
 
 	return r, nil

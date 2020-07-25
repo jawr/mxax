@@ -30,10 +30,7 @@ func (s *Site) getAliases() (*route, error) {
 			Route: "aliases",
 		}
 
-		if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
-			s.handleError(w, r, err)
-			return
-		}
+		s.renderTemplate(w, tmpl, r, d)
 	}
 
 	return r, nil
@@ -63,10 +60,7 @@ func (s *Site) getCreateAlias() (*route, error) {
 			Route: "aliases",
 		}
 
-		if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
-			s.handleError(w, r, err)
-			return
-		}
+		s.renderTemplate(w, tmpl, r, d)
 	}
 
 	return r, nil

@@ -22,14 +22,20 @@ func (s *Site) setupRoutes() error {
 
 	routes := []routeFn{
 		s.getDashboard,
+		// domains
 		s.getDomains,
+		s.getDomain,
 		s.getAddDomain,
 		s.postAddDomain,
+		// destinations
 		s.getDestinations,
 		s.getCreateDestination,
+		// aliases
 		s.getAliases,
 		s.getCreateAlias,
+		// log
 		s.getLog,
+		// security
 		s.getSecurity,
 	}
 

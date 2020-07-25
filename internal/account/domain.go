@@ -32,9 +32,14 @@ type Record struct {
 	ID             int
 	DomainID       int
 	Host           string
-	RType          string
+	Rtype          string
 	Value          string
 	LastVerifiedAt pgtype.Timestamp
+}
+
+func (rr Record) IsComplete() bool {
+	return !rr.LastVerifiedAt.Time.IsZero() && time.Since(rr.LastVerifiedAt.Time) > time.Hour*24
+
 }
 
 func GetDomainExpirationDate(name string) (time.Time, error) {

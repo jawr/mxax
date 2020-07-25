@@ -30,10 +30,7 @@ func (s *Site) getDashboard() (*route, error) {
 			Route: "dashboard",
 		}
 
-		if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
-			s.handleError(w, r, err)
-			return
-		}
+		s.renderTemplate(w, tmpl, r, d)
 	}
 
 	return r, nil

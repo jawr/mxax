@@ -1,9 +1,11 @@
 package site
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
@@ -12,8 +14,9 @@ import (
 )
 
 type Site struct {
-	db     *pgx.Conn
-	router *httprouter.Router
+	db                 *pgx.Conn
+	router             *httprouter.Router
+	templateBufferPool sync.Pool
 }
 
 // eventually if we want to do lots of testing we might want
@@ -21,6 +24,11 @@ type Site struct {
 func NewSite(db *pgx.Conn) (*Site, error) {
 	s := &Site{
 		db: db,
+		templateBufferPool: sync.Pool{
+			New: func() interface{} {
+				return new(bytes.Buffer)
+			},
+		},
 	}
 
 	if err := s.setupRoutes(); err != nil {

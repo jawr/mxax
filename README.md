@@ -21,3 +21,9 @@ Some ideas
 
 - Aliases should have a settable order, or the ability to define a catchall after 
   all custom aliases have been checked
+
+### Optimisations
+
+- Rendering;
+  https://stackoverflow.com/questions/24120466/writing-http-responses-to-a-temporary-bytes-buffer/24121613#24121613
+

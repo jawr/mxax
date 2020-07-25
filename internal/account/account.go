@@ -8,8 +8,8 @@ import (
 
 type MetaData struct {
 	CreatedAt time.Time
-	UpdatedAt pgtype.Time
-	DeletedAt pgtype.Time
+	UpdatedAt pgtype.Timestamp
+	DeletedAt pgtype.Timestamp
 }
 
 // Account represents a user of the service
@@ -20,5 +20,5 @@ type Account struct {
 	Password []byte
 
 	MetaData
-	LastLoginAt pgtype.Time
+	LastLoginAt pgtype.Timestamp
 }

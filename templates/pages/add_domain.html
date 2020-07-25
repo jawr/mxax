@@ -1,27 +1,33 @@
 {{define "page"}}
-        <div class="mw9 center br1 mh3 mv3">
-          <div class="w-100 bb b--near-white pa3 cf">
-            <h3 class="f4 ma0 p0 fl">
-              <i class="lni lni-world mr2"></i> 
-              Add Domain
-            </h3>
-          </div>
+<div class="mw9 center br1 mh3 mv3">
+  <div class="w-100 bb b--near-white pa3 cf">
+    <h3 class="f4 ma0 p0 fl">
+      <i class="lni lni-world mr2"></i> 
+      Add Domain
+    </h3>
+  </div>
 
-          <div class="w-100 pa4">
-            <p class="f5 pb3 lh-copy">We will create a 2048 bit DKIM key and provide you with the necessary DKIM, DMARC and SPF DNS records to create in your registrar.</p>
+  <div class="w-100 pa4">
+    <p class="f5 pb3 lh-copy">We will create a 2048 bit DKIM key and provide you with the necessary DKIM, DMARC and SPF DNS records to create in your registrar.</p>
 
-            <form method="post" accept-charset="utf-8">
-              <fieldset class="ba b--transparent ph0 mh0">
-                <legend class="ph0 mh0 fw6 clip">Domain</legend>
-                <div class="mt3">
-                  <label class="db fw4 lh-copy f6" for="domain">Domain</label>
-                  <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="domain" />
-                </div>
-
-                    <div class="mt4">
-                      <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Add" />
-                    </div>
-            </form>
-          </div>
+    <form method="post" accept-charset="utf-8">
+      <fieldset class="ba b--transparent ph0 mh0">
+        <legend class="ph0 mh0 fw6 clip">Domain</legend>
+        <div class="mt3">
+          <label class="db fw4 lh-copy f6" for="domain">Domain</label>
+          <input class="pa2 input-reset ba bg-transparent w-100 measure {{if .Errors.HasError "domain"}}b--red red{{end}}" type="text" name="domain" />
         </div>
+
+        {{if hasField . "Errors"}}
+        {{range .Errors.All}}
+        <p class="red">{{.}}</p>
         {{end}}
+        {{end}}
+
+        <div class="mt4">
+          <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Add" />
+        </div>
+    </form>
+  </div>
+</div>
+{{end}}

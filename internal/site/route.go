@@ -24,6 +24,7 @@ func (s *Site) setupRoutes() error {
 		s.getDashboard,
 		s.getDomains,
 		s.getAddDomain,
+		s.postAddDomain,
 		s.getDestinations,
 		s.getCreateDestination,
 		s.getAliases,

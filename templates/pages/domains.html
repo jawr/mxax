@@ -26,54 +26,33 @@
           </tr>
         </thead>
         <tbody class="lh-copy">
+          {{range .Domains}}
           <tr>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">pageup.me</a></td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">5</a></td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline navy">jess@lawrence.pm</a></td>
-            <td class="pv3 pr3 bb b--black-20"><span class="br1 f7 tc pv1 ph2 ba b--green green b">Verified</span></td>
+            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">{{.Name}}</a></td>
+            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">{{.Aliases}}</a></td>
             <td class="pv3 pr3 bb b--black-20">
-              <a href="#" class="link navy pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
+              <a href="#" class="link navy">
+                {{if gt .CatchAll 0}}
+                  <i class="lni lni-checkmark"></i>
+                {{else}}
+                  <i class="lni lni-close"></i>
+                {{end}}
+              </a>
+            </td>
+            <td class="pv3 pr3 bb b--black-20">
+              {{template "domain_status" .}}
+            </td>
+            <td class="pv3 pr3 bb b--black-20">
               <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
               <a href="#" class="link navy pr2" title="View details"><i class="lni lni-question-circle"></i></a>
               <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
             </td>
           </tr>
+          {{else}}
           <tr>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">pageup.uk</a></td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">0</a></td>
-            <td class="pv3 pr3 bb b--black-20"><i class="lni lni-close"></i></td>
-            <td class="pv3 pr3 bb b--black-20"><span class="br1 f7 tc pv1 ph2 ba b--red red b">Unverified</span></td>
-            <td class="pv3 pr3 bb b--black-20">
-              <a href="#" class="link navy pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
-              <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
-              <a href="#" class="link navy pr2" title="View details"><i class="lni lni-question-circle"></i></a>
-              <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
-            </td>
+            <td class="tc">Please add a Domain</td>
           </tr>
-          <tr>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">mx.ax</a></td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">12</a></td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline navy">jess@lawrence.pm</a></td>
-            <td class="pv3 pr3 bb b--black-20"><span class="br1 f7 tc pv1 ph2 ba b--orange orange b">Expiring</span></td>
-            <td class="pv3 pr3 bb b--black-20">
-              <a href="#" class="link navy pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
-              <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
-              <a href="#" class="link navy pr2" title="View details"><i class="lni lni-question-circle"></i></a>
-              <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
-            </td>
-          </tr>
-          <tr>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">tcp.io</a></td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">0</a></td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" class="no-underline navy">jess@lawrence.pm</a></td>
-            <td class="pv3 pr3 bb b--black-20"><span class="br1 f7 tc pv1 ph2 ba b--orange orange b">Incomplete</span></td>
-            <td class="pv3 pr3 bb b--black-20">
-              <a href="#" class="link navy pr2" title="Set catch all"><i class="lni lni-shovel"></i></a>
-              <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
-              <a href="#" class="link navy pr2" title="View details"><i class="lni lni-question-circle"></i></a>
-              <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
-            </td>
-          </tr>
+          {{end}}
         </tbody>
       </table>
     </div>

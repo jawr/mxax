@@ -1,11 +1,12 @@
 package site
 
 import (
-	"html/template"
+	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/jackc/pgx"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )
@@ -30,25 +31,21 @@ func NewSite(db *pgx.Conn) (*Site, error) {
 }
 
 func (s *Site) Run(addr string) error {
-	log.Printf("Listening on http://%s", addr)
 	return http.ListenAndServe(addr, s.router)
 }
 
-func (s *Site) loadTemplate(path string) (*template.Template, error) {
-	tmpl, err := template.ParseFiles(path)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "ParseFiles '%s'", path)
-	}
-
-	tmpl, err = tmpl.ParseGlob("templates/base/*.html")
-	if err != nil {
-		return nil, errors.WithMessage(err, "ParseGlob base")
-	}
-
-	return tmpl, nil
-}
-
 func (s *Site) handleError(w http.ResponseWriter, r *route, err error) {
-	log.Printf("%s %s ERROR: %s", r.method, r.path, err)
-	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	id, err := uuid.NewRandom()
+	if err != nil {
+		log.Printf("%s %s ERROR: %s", r.method, r.path, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("%s %s ERROR: %s (%s)", r.method, r.path, err, id)
+	http.Error(
+		w,
+		fmt.Sprintf("Internal Server Error (%s)", id),
+		http.StatusInternalServerError,
+	)
 }

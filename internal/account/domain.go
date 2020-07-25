@@ -10,8 +10,23 @@ type Domain struct {
 
 	AccountID int
 
-	Name       string
-	VerifiedAt pgtype.Time
+	Name string
+
+	// Verification
+	VerifyCode string
+	VerifiedAt pgtype.Timestamp
+
+	// when the domain expires
+	ExpiresAt pgtype.Date
 
 	MetaData
+}
+
+type Record struct {
+	ID             int
+	DomainID       int
+	Host           string
+	RType          string
+	Value          string
+	LastVerifiedAt pgtype.Timestamp
 }

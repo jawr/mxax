@@ -1,4 +1,4 @@
-module github.com/jess/mxax
+module github.com/jawr/mxax
 
 go 1.14
 

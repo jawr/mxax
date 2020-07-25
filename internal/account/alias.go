@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgtype"
 )
 
 // ReturnPath represents a route back for bounces
@@ -15,7 +16,7 @@ type ReturnPath struct {
 	ReturnTo string
 
 	CreatedAt  time.Time
-	ReturnedAt time.Time
+	ReturnedAt pgtype.Timestamp
 }
 
 // Alias represents an rule created by an Account

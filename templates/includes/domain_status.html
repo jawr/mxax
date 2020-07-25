@@ -1,0 +1,17 @@
+{{define "domain_status"}}
+
+{{if eq .Status "ready"}}
+<span class="br1 f7 tc pv1 ph2 ba b--green green b">Ready</span>
+{{else if eq .Status "unverified"}}
+<span class="br1 f7 tc pv1 ph2 ba b--red red b">Unverified</span>
+{{else if eq .Status "incomplete"}}
+<span class="br1 f7 tc pv1 ph2 ba b--orange orange b">Incomplete</span>
+{{else}}
+<span class="br1 f7 tc pv1 ph2 ba b--gray gray b">Unnown</span>
+{{end}}
+
+{{if .Expiring}}
+<span class="br1 f7 tc pv1 ph2 ba b--orange orange b">Expiring</span>
+{{end}}
+
+{{end}}

@@ -4,7 +4,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/jess/mxax/internal/site/funcs"
+	"github.com/jawr/mxax/internal/site/funcs"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )

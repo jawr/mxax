@@ -35,9 +35,9 @@ func (s *Site) Run(addr string) error {
 }
 
 func (s *Site) handleError(w http.ResponseWriter, r *route, err error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		log.Printf("%s %s ERROR: %s", r.method, r.path, err)
+	id, uerr := uuid.NewRandom()
+	if uerr != nil {
+		log.Printf("%s %s ERROR: %s (%s)", r.method, r.path, uerr, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}

@@ -2,15 +2,13 @@ package site
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jawr/mxax/internal/account"
-	"github.com/jawr/whois-parser-go"
 	"github.com/julienschmidt/httprouter"
-	"github.com/likexian/whois-go"
+	"github.com/pkg/errors"
 )
 
 // template only routes
@@ -133,70 +131,73 @@ func (s *Site) postAddDomain() (*route, error) {
 		}
 
 		// get expires at for domain
-		whoisResult, err := whois.Whois(name)
+		// also acts as an additional layer of
+		// validation, might be too noisey/error prone
+		expiresAt, err := account.GetDomainExpirationDate(name)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			d.Errors.Add("domain", err.Error())
 		}
 
 		// TODO
 		// what other checks do we want to introduce here
 
-		// create a code
-		var verifyCode string
-		var tries int
-		for {
-			if tries > 10 {
-				s.handleError(w, r, errors.New("Too many tries creating a verify code. Please contact support."))
-				return
+		if !d.Errors.Error() {
+			// create a code
+			var verifyCode string
+			var tries int
+			for {
+				if tries > 10 {
+					s.handleError(w, r, errors.New("Too many tries creating a verify code. Please contact support."))
+					return
+				}
+
+				n := 11
+				b := make([]byte, n)
+				if _, err := rand.Read(b); err != nil {
+					s.handleError(w, r, err)
+					return
+				}
+
+				verifyCode = fmt.Sprintf("mxax-%X", b)
+
+				var count int
+				err := s.db.QueryRow(req.Context(), "SELECT COUNT(*) FROM domains WHERE verify_code = $1", verifyCode).Scan(&count)
+				if err != nil {
+					s.handleError(w, r, errors.WithMessage(err, "Select VerifyCode count"))
+					return
+				}
+
+				if count == 0 {
+					break
+				}
 			}
 
-			n := 9
-			b := make([]byte, n)
-			if _, err := rand.Read(b); err != nil {
-				s.handleError(w, r, err)
-				return
-			}
-
-			verifyCode = fmt.Sprintf("%X", b)
-
-			var count int
-			err := s.db.QueryRow(req.Context(), "SELECT COUNT(*) FROM domains WHERE verify_code = $1", s).Scan(&count)
-			if err != nil {
-				s.handleError(w, r, err)
-				return
-			}
-
-			if count == 0 {
-				break
-			}
-		}
-
-		// insert
-		_, err := s.db.Exec(
-			req.Context(),
-			`
+			// insert
+			_, err = s.db.Exec(
+				req.Context(),
+				`
 			INSERT INTO domains (account_id, name, verify_code, expires_at) 
 				VALUES ($1, $2, $3, $4)
 				`,
-			accountID,
-			name,
-			verifyCode,
-			expiresAt,
-		)
-		if err != nil {
-			s.handleError(w, r, err)
+				accountID,
+				name,
+				verifyCode,
+				expiresAt,
+			)
+			if err != nil {
+				s.handleError(w, r, errors.WithMessage(err, "Insert"))
+				return
+			}
+
+			// redirect success to domains page
+			http.Redirect(w, req, "/domains", http.StatusFound)
 			return
 		}
 
-		if d.Errors.Error() {
-			if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
-				s.handleError(w, r, err)
-				return
-			}
-		} else {
-			// redirect success to domains page
-			http.Redirect(w, req, "/domains", http.StatusFound)
+		// otherwise display errors
+		if err := tmpl.ExecuteTemplate(w, "base", d); err != nil {
+			s.handleError(w, r, err)
+			return
 		}
 	})
 

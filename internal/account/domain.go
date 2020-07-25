@@ -1,6 +1,12 @@
 package account
 
-import "github.com/jackc/pgtype"
+import (
+	"time"
+
+	"github.com/jackc/pgtype"
+	whoisParser "github.com/jawr/whois-parser-go"
+	"github.com/likexian/whois-go"
+)
 
 // Domain is attached to an Account and must
 // be verified before being used. Alias' are
@@ -29,4 +35,19 @@ type Record struct {
 	RType          string
 	Value          string
 	LastVerifiedAt pgtype.Timestamp
+}
+
+func GetDomainExpirationDate(name string) (time.Time, error) {
+	whoisResult, err := whois.Whois(name)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	// parse and extract expiresAt
+	whoisParsed, err := whoisParser.Parse(whoisResult)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return whoisParsed.Domain.ExpirationDate, nil
 }

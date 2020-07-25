@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/jess/mxax/internal/account"
+	"github.com/jawr/mxax/internal/account"
 	"github.com/pkg/errors"
 )
 

@@ -15,7 +15,13 @@
         <legend class="ph0 mh0 fw6 clip">Domain</legend>
         <div class="mt3">
           <label class="db fw4 lh-copy f6" for="domain">Domain</label>
+
+        {{if hasField . "Errors"}}
           <input class="pa2 input-reset ba bg-transparent w-100 measure {{if .Errors.HasError "domain"}}b--red red{{end}}" type="text" name="domain" />
+          {{else}}
+          <input class="pa2 input-reset ba bg-transparent w-100 measure" type="text" name="domain" />
+          {{end}}
+
         </div>
 
         {{if hasField . "Errors"}}

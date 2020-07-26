@@ -1,62 +1,47 @@
 {{define "page"}}
-        <div class="mw9 center br1 mh3 mv3">
-          <div class="w-100 bb b--near-white pa3 cf">
-            <h3 class="f4 ma0 p0 fl">
-              <i class="lni lni-direction mr2"></i> Aliases
-            </h3>
-            <a href="/aliases/create" class="fr pa2 bg-light-green dark-green hover-b--dark-green ba b--washed-green no-underline br1">
-              <i class="lni lni-plus"></i>
-            </a>
-          </div>
+<div class="mw9 center br1 mh3 mv3">
+  <div class="w-100 bb b--near-white pa3 cf">
+    <h3 class="f4 ma0 p0 fl">
+      <i class="lni lni-direction mr2"></i> Aliases
+    </h3>
+    <a href="/aliases/create" class="fr pa2 bg-light-green dark-green hover-b--dark-green ba b--washed-green no-underline br1">
+      <i class="lni lni-plus"></i>
+    </a>
+  </div>
 
-          <div class="w-100 pa4">
-            <h4 class="f5 pb3">Overview of your aliases</h4>
-
-            <div class="overflow-auto">
-              <table class="f6 w-100 center" cellspacing="0">
-                <thead>
-                  <tr>
-                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Domain</th>
-                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Rule</th>
-                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Destination</th>
-                    <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4"></th>
-                  </tr>
-                </thead>
-                <tbody class="lh-copy">
-                  <tr>
-                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">pageup.uk</a></td>
-                    <td class="pv3 pr3 bb b--black-20">je[fs][fs]</td>
-                    <td class="pv3 pr3 bb b--black-20">dean@companywithalongdomain.co</td>
-                    <td class="pv3 pr3 bb b--black-20">
-                      <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
-                      <a href="#" class="link navy pr2" title="Edit"><i class="lni lni-pencil"></i></a>
-                      <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">pageup.uk</a></td>
-                    <td class="pv3 pr3 bb b--black-20">admin</td>
-                    <td class="pv3 pr3 bb b--black-20">dean@gmail.com</td>
-                    <td class="pv3 pr3 bb b--black-20">
-                      <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
-                      <a href="#" class="link navy pr2" title="Edit"><i class="lni lni-pencil"></i></a>
-                      <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">pageup.uk</a></td>
-                    <td class="pv3 pr3 bb b--black-20">(cloudflare|spotify)</td>
-                    <td class="pv3 pr3 bb b--black-20">somewhere@else.com</td>
-                    <td class="pv3 pr3 bb b--black-20">
-                      <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
-                      <a href="#" class="link navy pr2" title="Edit"><i class="lni lni-pencil"></i></a>
-                      <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+  <div class="w-100 pa4">
+    <h4 class="f5 pb3">Overview of your aliases</h4>
+    <div class="overflow-auto">
+      <table class="f6 w-100 center" cellspacing="0">
+        <thead>
+          <tr>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Domain</th>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Rule</th>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Destinations</th>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4"></th>
+          </tr>
+        </thead>
+        <tbody class="lh-copy">
+          {{range .Aliases}}
+          <tr>
+            <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">{{.Domain}}</a></td>
+            <td class="pv3 pr3 bb b--black-20">{{.Rule}}</td>
+            <td class="pv3 pr3 bb b--black-20">{{.Destinations}}</td>
+            <td class="pv3 pr3 bb b--black-20">
+              <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
+              <a href="#" class="link navy pr2" title="Edit"><i class="lni lni-pencil"></i></a>
+              <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
+            </td>
+          </tr>
+          {{else}}
+          <tr>
+            <td>Please add an alias</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 {{end}}

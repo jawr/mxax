@@ -28,7 +28,8 @@ type Alias struct {
 
 	DomainID int
 
-	Rule string
+	Rule     string
+	CatchAll bool
 
 	// internal use
 	rule         *regexp.Regexp

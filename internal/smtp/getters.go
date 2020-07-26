@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const defaultCacheTTL = time.Hour * 24
+const defaultCacheTTL = time.Minute * 5
 
 // ttl cached lookup of mx records for a domain
 func getDestinationMXs(cache *ristretto.Cache, domain string) ([]*net.MX, error) {

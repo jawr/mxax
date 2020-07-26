@@ -48,7 +48,7 @@ func run() error {
 	}
 
 	// messages to sent get queued here
-	queueEnvelopeHandler, err := smtp.MakeQueueEnvelopeHandler()
+	queueEnvelopeHandler, err := smtp.MakeQueueEnvelopeHandler(db)
 	if err != nil {
 		return errors.WithMessage(err, "makeQueueEnvelopeHandler")
 	}

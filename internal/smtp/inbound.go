@@ -86,6 +86,8 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 	)
 
 	if result == spf.Fail {
+		// TODO inc drops
+
 		log.Printf(
 			"%s - Mail - CheckHostWithSender spf.Fail: ip: %s hostname: %s from: %s",
 			s,
@@ -116,6 +118,8 @@ func (s *InboundSession) Rcpt(to string) error {
 		}
 
 		if len(returnPath) == 0 {
+			// TODO inc drops
+
 			// no returnPath address found, return aliasHandler error
 			log.Printf("%s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
 			return errors.Errorf("unknown recipient (%s)", s)

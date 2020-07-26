@@ -37,7 +37,8 @@ CREATE TABLE aliases (
 	catch_all BOOLEAN NOT NULL DEFAULT false,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP WITH TIME ZONE,
-	deleted_at TIMESTAMP WITH TIME ZONE
+	deleted_at TIMESTAMP WITH TIME ZONE,
+	UNIQUE(domain_id, rule)
 );
 
 CREATE TABLE destinations (

@@ -105,7 +105,13 @@ func (r Record) Check(domain string, config *dns.ClientConfig) error {
 			txt := strings.Join(a.(*dns.TXT).Txt, "")
 			found := fmt.Sprintf(`"%s"`, txt)
 
-			if found == r.Value {
+			found = strings.Replace(found, `" "`, "", -1)
+			found = strings.Trim(found, `"`)
+
+			against := strings.Replace(r.Value, `" "`, "", -1)
+			against = strings.Trim(against, `"`)
+
+			if found == against {
 				return nil
 			}
 		}

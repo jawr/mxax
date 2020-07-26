@@ -59,7 +59,10 @@ func (s *Site) getDomains() (*route, error) {
 			SELECT 
 				d.*,
 				COALESCE(COUNT(DISTINCT a.id)) as aliases,
-				COALESCE(COUNT(DISTINCT r.id)) as records,
+				COALESCE(COUNT(DISTINCT r.id) FILTER (
+					WHERE last_verified_at IS NOT NULL 
+					OR last_verified_at > NOW() - INTERVAL '24 hours'
+				)) as records,
 				COALESCE(COUNT(DISTINCT a.id) FILTER (WHERE catch_all = true)) as catch_all
 			FROM domains AS d 
 				LEFT JOIN aliases AS a ON d.id = a.domain_id 
@@ -76,7 +79,7 @@ func (s *Site) getDomains() (*route, error) {
 		for idx, dom := range d.Domains {
 			if dom.VerifiedAt.Time.IsZero() {
 				d.Domains[idx].Status = "unverified"
-			} else if dom.Records != 3 {
+			} else if dom.Records != 4 {
 				d.Domains[idx].Status = "incomplete"
 			} else {
 				d.Domains[idx].Status = "ready"
@@ -230,7 +233,7 @@ func (s *Site) getPostAddDomain() (*route, error) {
 				req.Context(),
 				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
 				id,
-				"mxax._domainkeys",
+				"mxax._domainkey",
 				"TXT",
 				dkimKey.String(),
 			)
@@ -370,7 +373,7 @@ func (s *Site) getDomain() (*route, error) {
 		}
 
 		// verify domain
-		if d.Domain.VerifiedAt.Time.IsZero() && isComplete {
+		if d.Domain.VerifiedAt.Time.IsZero() && !isComplete {
 			s.renderTemplate(w, verifyTmpl, r, d)
 			return nil
 		}

@@ -46,6 +46,15 @@ func (rr Record) IsComplete() bool {
 
 }
 
+func (r Record) String() string {
+	return fmt.Sprintf(
+		"%s 10800 IN %s %s",
+		r.Host,
+		r.Rtype,
+		r.Value,
+	)
+}
+
 func (r Record) Check(domain string, config *dns.ClientConfig) error {
 	client := new(dns.Client)
 
@@ -83,7 +92,26 @@ func (r Record) Check(domain string, config *dns.ClientConfig) error {
 		return errors.New("Too many records found.")
 	}
 
-	return errors.New(resp.Answer[0].String())
+	for _, a := range resp.Answer {
+		switch r.Rtype {
+		case "MX":
+			found := fmt.Sprintf("%d %s", a.(*dns.MX).Preference, a.(*dns.MX).Mx)
+
+			if found == r.Value {
+				return nil
+			}
+
+		case "TXT":
+			txt := strings.Join(a.(*dns.TXT).Txt, "")
+			found := fmt.Sprintf(`"%s"`, txt)
+
+			if found == r.Value {
+				return nil
+			}
+		}
+	}
+
+	return errors.New("No match")
 }
 
 func GetDomainExpirationDate(name string) (time.Time, error) {

@@ -236,7 +236,7 @@ func (s *Site) postAddDomain() (*route, error) {
 				req.Context(),
 				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
 				id,
-				"@",
+				"mxax._domainkeys",
 				"TXT",
 				dkimKey.String(),
 			)
@@ -532,7 +532,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 
 		for _, rr := range d.Records {
 			if err := rr.Check(d.Domain.Name, dnsConfig); err != nil {
-				d.Errors.Add(rr.Host, err.Error())
+				d.Errors.Add(rr.Value, err.Error())
 				continue
 			}
 

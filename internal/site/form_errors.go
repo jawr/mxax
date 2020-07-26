@@ -23,6 +23,10 @@ func (f FormErrors) HasError(field string) bool {
 	return ok
 }
 
+func (f FormErrors) Field(field string) string {
+	return f.m[field]
+}
+
 func (f FormErrors) All() []string {
 	all := make([]string, 0, len(f.m))
 	for _, m := range f.m {

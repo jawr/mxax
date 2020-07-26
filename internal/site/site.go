@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/dgraph-io/badger/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
@@ -15,11 +16,13 @@ import (
 )
 
 type Site struct {
-	db                 *pgx.Conn
-	router             *httprouter.Router
-	templateBufferPool sync.Pool
+	db         *pgx.Conn
+	router     *httprouter.Router
+	bufferPool sync.Pool
 
 	errorTemplate *template.Template
+
+	sessionStore *badger.DB
 }
 
 // eventually if we want to do lots of testing we might want
@@ -35,14 +38,21 @@ func NewSite(db *pgx.Conn) (*Site, error) {
 		return nil, errors.WithMessage(err, "ParseGlob base")
 	}
 
+	// create session keystore
+	sessionStore, err := badger.Open(badger.DefaultOptions("sessions.bdgr"))
+	if err != nil {
+		return nil, errors.WithMessage(err, "badger.Open")
+	}
+
 	s := &Site{
 		db: db,
-		templateBufferPool: sync.Pool{
+		bufferPool: sync.Pool{
 			New: func() interface{} {
 				return new(bytes.Buffer)
 			},
 		},
 		errorTemplate: tmpl,
+		sessionStore:  sessionStore,
 	}
 
 	if err := s.setupRoutes(); err != nil {
@@ -53,6 +63,7 @@ func NewSite(db *pgx.Conn) (*Site, error) {
 }
 
 func (s *Site) Run(addr string) error {
+	defer s.sessionStore.Close()
 	return http.ListenAndServe(addr, s.router)
 }
 

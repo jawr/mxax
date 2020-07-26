@@ -11,8 +11,8 @@ import (
 )
 
 func (s *Site) renderTemplate(w http.ResponseWriter, t *template.Template, r *route, d interface{}) {
-	b := s.templateBufferPool.Get().(*bytes.Buffer)
-	defer s.templateBufferPool.Put(b)
+	b := s.bufferPool.Get().(*bytes.Buffer)
+	defer s.bufferPool.Put(b)
 
 	b.Reset()
 

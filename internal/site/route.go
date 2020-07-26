@@ -20,6 +20,14 @@ type routeFn func() (*route, error)
 func (s *Site) setupRoutes() error {
 	s.router = httprouter.New()
 
+	getPostLogin, err := s.getPostLogin()
+	if err != nil {
+		return errors.WithMessage(err, "getPostLogin")
+	}
+
+	s.router.GET("/login", getPostLogin)
+	s.router.POST("/login", getPostLogin)
+
 	// make these all accountID/auth handlers by default and apply the auth
 	// middleware here
 	routes := []routeFn{
@@ -40,6 +48,8 @@ func (s *Site) setupRoutes() error {
 		s.getLog,
 		// security
 		s.getSecurity,
+		// logout
+		s.getLogout,
 	}
 
 	for idx := range routes {

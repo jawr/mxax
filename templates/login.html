@@ -1,0 +1,51 @@
+{{define "login"}}
+<!DOCTYPE html>
+<html lang="en">
+  <title>{{block "title" .}}MX{{end}}</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="https://unpkg.com/tachyons/css/tachyons.min.css">
+  <link rel="stylesheet" href="./assets/style.css">
+  <link rel="stylesheet" href="https://cdn.lineicons.com/2.0/LineIcons.css">
+
+  <body class="sans-serif dark-gray">
+
+    <div class="flex justify-center items-center w-100 vh-100 sticky bg-light-green">
+
+      <main class="mw7 measure pa4 black-80 bg-white br1">
+        <form method="post" >
+          <fieldset class="ba b--transparent ph0 mh0">
+            <div class="mt3">
+              <label class="db fw6 lh-copy f6" for="email-address">Username</label>
+              <input class="pa2 input-reset ba bg-transparent hover-bg-washed-green w-100" type="email" name="username" />
+            </div>
+            <div class="mv3">
+              <label class="db fw6 lh-copy f6" for="password">Password</label>
+              <input class="b pa2 input-reset ba bg-transparent hover-bg-washed-green w-100" type="password" name="password" />
+            </div>
+            <!--
+            <label class="pa0 ma0 lh-copy f6 pointer"><input type="checkbox"> Remember me</label>
+            -->
+          </fieldset>
+
+        {{range .Errors.All}}
+        <p class="red">{{.}}</p>
+        {{end}}
+
+            <input class="b ph3 pv2 input-reset ba b--black bg-transparent grow pointer f6 dib" type="submit" value="Login">
+
+          <!--
+          <div class="lh-copy mt3">
+            <a href="#0" class="f6 link dim black db">Sign up</a>
+            <a href="#0" class="f6 link dim black db">Forgot your password?</a>
+          </div>
+          -->
+        </form>
+      </main>
+    </div>
+
+  </body>
+</html>
+{{end}}
+

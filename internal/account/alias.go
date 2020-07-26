@@ -59,7 +59,6 @@ type Destination struct {
 
 	AccountID int
 
-	Name    string
 	Address string
 
 	MetaData

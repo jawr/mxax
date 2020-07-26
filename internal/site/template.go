@@ -69,14 +69,14 @@ func (s Site) templateResponse(path, method, routeName, templatePath string) (*r
 	}
 
 	// actual handler
-	r.h = func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = s.auth(func(_ int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 
 		d := data{
 			Route: routeName,
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
-	}
+	})
 
 	return r, nil
 }

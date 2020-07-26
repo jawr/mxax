@@ -32,6 +32,7 @@ func (s *Site) setupRoutes() error {
 		// destinations
 		s.getDestinations,
 		s.getCreateDestination,
+		s.postCreateDestination,
 		// aliases
 		s.getAliases,
 		s.getCreateAlias,

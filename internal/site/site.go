@@ -65,12 +65,12 @@ type Error struct {
 func (s *Site) handleError(w http.ResponseWriter, r *route, err error) {
 	id, uerr := uuid.NewRandom()
 	if uerr != nil {
-		log.Printf("%s %s ERROR: %s (%s)", r.method, r.path, uerr, err)
+		log.Printf("%v %s ERROR: %s (%s)", r.methods, r.path, uerr, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("%s %s ERROR: %s (%s)", r.method, r.path, err, id)
+	log.Printf("%v %s ERROR: %s (%s)", r.methods, r.path, err, id)
 
 	d := &Error{
 		StatusCode: http.StatusInternalServerError,
@@ -79,7 +79,7 @@ func (s *Site) handleError(w http.ResponseWriter, r *route, err error) {
 	}
 
 	if err := s.errorTemplate.ExecuteTemplate(w, "base", d); err != nil {
-		log.Printf("%s %s ERROR: %s (%s)", r.method, r.path, err, id)
+		log.Printf("%v %s ERROR: %s (%s)", r.methods, r.path, err, id)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }

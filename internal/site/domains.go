@@ -13,16 +13,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// template only routes
-func (s *Site) getAddDomain() (*route, error) {
-	return s.templateResponse("/domains/add", "GET", "domains", "templates/pages/add_domain.html")
-}
-
 // display overview information about all domains
 func (s *Site) getDomains() (*route, error) {
 	r := &route{
-		path:   "/domains",
-		method: "GET",
+		path:    "/domains",
+		methods: []string{"GET"},
 	}
 
 	// setup template
@@ -50,7 +45,7 @@ func (s *Site) getDomains() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "domains",
@@ -63,9 +58,9 @@ func (s *Site) getDomains() (*route, error) {
 			`
 			SELECT 
 				d.*,
-				COALESCE(COUNT(a.*)) as aliases,
-				COALESCE(COUNT(r.*)) as records,
-				COALESCE(COUNT(a.*) FILTER (WHERE catch_all = true)) as catch_all
+				COALESCE(COUNT(DISTINCT a.id)) as aliases,
+				COALESCE(COUNT(DISTINCT r.id)) as records,
+				COALESCE(COUNT(DISTINCT a.id) FILTER (WHERE catch_all = true)) as catch_all
 			FROM domains AS d 
 				LEFT JOIN aliases AS a ON d.id = a.domain_id 
 				LEFT JOIN records AS r ON d.id = r.domain_id
@@ -74,8 +69,7 @@ func (s *Site) getDomains() (*route, error) {
 			`,
 			accountID,
 		); err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		// setup status
@@ -96,7 +90,9 @@ func (s *Site) getDomains() (*route, error) {
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }
@@ -105,10 +101,10 @@ func (s *Site) getDomains() (*route, error) {
 // if there are validation issues it will return
 // the add page and display said errors
 // otherwise it will return to the main domains page
-func (s *Site) postAddDomain() (*route, error) {
+func (s *Site) getPostAddDomain() (*route, error) {
 	r := &route{
-		path:   "/domains/add",
-		method: "POST",
+		path:    "/domains/add",
+		methods: []string{"GET", "POST"},
 	}
 
 	// setup template
@@ -126,11 +122,16 @@ func (s *Site) postAddDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "domains",
 			Errors: newFormErrors(),
+		}
+
+		if req.Method == "GET" {
+			s.renderTemplate(w, tmpl, r, d)
+			return nil
 		}
 
 		name := req.FormValue("domain")
@@ -157,15 +158,13 @@ func (s *Site) postAddDomain() (*route, error) {
 			var tries int
 			for {
 				if tries > 10 {
-					s.handleError(w, r, errors.New("Too many tries creating a verify code. Please contact support."))
-					return
+					return errors.New("Too many tries creating a verify code. Please contact support.")
 				}
 
 				n := 11
 				b := make([]byte, n)
 				if _, err := rand.Read(b); err != nil {
-					s.handleError(w, r, err)
-					return
+					return err
 				}
 
 				verifyCode = fmt.Sprintf("mxax-%X", b)
@@ -173,8 +172,7 @@ func (s *Site) postAddDomain() (*route, error) {
 				var count int
 				err := s.db.QueryRow(req.Context(), "SELECT COUNT(*) FROM domains WHERE verify_code = $1", verifyCode).Scan(&count)
 				if err != nil {
-					s.handleError(w, r, errors.WithMessage(err, "Select VerifyCode count"))
-					return
+					return errors.WithMessage(err, "Select VerifyCode count")
 				}
 
 				if count == 0 {
@@ -186,8 +184,7 @@ func (s *Site) postAddDomain() (*route, error) {
 			// an error
 			tx, err := s.db.Begin(req.Context())
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Insert"))
-				return
+				return errors.WithMessage(err, "Insert")
 			}
 			// TODO:
 			// will this context cancel the rollback??
@@ -207,15 +204,13 @@ func (s *Site) postAddDomain() (*route, error) {
 				expiresAt,
 			).Scan(&id)
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Insert"))
-				return
+				return errors.WithMessage(err, "Insert")
 			}
 
 			// create dkim record
 			dkimKey, err := account.NewDkimKey(id)
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "NewDkimKey"))
-				return
+				return errors.WithMessage(err, "NewDkimKey")
 			}
 
 			// insert dkim
@@ -227,8 +222,7 @@ func (s *Site) postAddDomain() (*route, error) {
 				dkimKey.PublicKey,
 			)
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Insert DkimKey"))
-				return
+				return errors.WithMessage(err, "Insert DkimKey")
 			}
 
 			// insert dkim record
@@ -241,8 +235,7 @@ func (s *Site) postAddDomain() (*route, error) {
 				dkimKey.String(),
 			)
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Insert DkimKey Record"))
-				return
+				return errors.WithMessage(err, "Insert DkimKey Record")
 			}
 
 			// insert mx
@@ -255,8 +248,7 @@ func (s *Site) postAddDomain() (*route, error) {
 				"10 mx.pageup.uk.",
 			)
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Insert MX Record"))
-				return
+				return errors.WithMessage(err, "Insert MX Record")
 			}
 
 			// TODO
@@ -272,8 +264,7 @@ func (s *Site) postAddDomain() (*route, error) {
 				`"v=spf1 include:spf.pageup.uk ~all"`,
 			)
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Insert SPF Record"))
-				return
+				return errors.WithMessage(err, "Insert SPF Record")
 			}
 
 			// insert dmarc
@@ -286,23 +277,24 @@ func (s *Site) postAddDomain() (*route, error) {
 				`"v=DMARC1; p=quarantine"`,
 			)
 			if err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Insert DkimKey Record"))
-				return
+				return errors.WithMessage(err, "Insert DkimKey Record")
 			}
 
 			if err := tx.Commit(req.Context()); err != nil {
-				s.handleError(w, r, errors.WithMessage(err, "Commit"))
-				return
+				return errors.WithMessage(err, "Commit")
 			}
 
 			// redirect success to domains page
 			http.Redirect(w, req, "/domains", http.StatusFound)
-			return
+
+			return nil
 		}
 
 		// otherwise display errors
 		s.renderTemplate(w, tmpl, r, d)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }
@@ -312,8 +304,8 @@ func (s *Site) postAddDomain() (*route, error) {
 // different templates
 func (s *Site) getDomain() (*route, error) {
 	r := &route{
-		path:   "/domain/:domain",
-		method: "GET",
+		path:    "/domain/:domain",
+		methods: []string{"GET"},
 	}
 
 	// setup templates
@@ -339,7 +331,7 @@ func (s *Site) getDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "domains",
@@ -354,8 +346,7 @@ func (s *Site) getDomain() (*route, error) {
 			ps.ByName("domain"),
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		err = pgxscan.Select(
@@ -366,8 +357,7 @@ func (s *Site) getDomain() (*route, error) {
 			d.Domain.ID,
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		// check if domain status is complete
@@ -382,18 +372,20 @@ func (s *Site) getDomain() (*route, error) {
 		// verify domain
 		if d.Domain.VerifiedAt.Time.IsZero() && isComplete {
 			s.renderTemplate(w, verifyTmpl, r, d)
-			return
+			return nil
 		}
 
 		// if incomplete
 		if !isComplete {
 			http.Redirect(w, req, fmt.Sprintf("/domain/%s/check", d.Domain.Name), http.StatusFound)
-			return
+			return nil
 		}
 
 		// finally complete
 		s.renderTemplate(w, tmpl, r, d)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }
@@ -401,8 +393,8 @@ func (s *Site) getDomain() (*route, error) {
 // check and see if the associated verify code exists
 func (s *Site) postVerifyDomain() (*route, error) {
 	r := &route{
-		path:   "/domain/:domain/verify",
-		method: "POST",
+		path:    "/domain/:domain/verify",
+		methods: []string{"POST"},
 	}
 
 	// setup templates
@@ -425,7 +417,7 @@ func (s *Site) postVerifyDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "domains",
@@ -441,8 +433,7 @@ func (s *Site) postVerifyDomain() (*route, error) {
 			ps.ByName("domain"),
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		if err := d.Domain.CheckVerifyCode(dnsConfig); err != nil {
@@ -451,7 +442,7 @@ func (s *Site) postVerifyDomain() (*route, error) {
 
 		if d.Errors.Error() {
 			s.renderTemplate(w, tmpl, r, d)
-			return
+			return nil
 		}
 
 		_, err = s.db.Exec(
@@ -460,12 +451,13 @@ func (s *Site) postVerifyDomain() (*route, error) {
 			d.Domain.ID,
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		http.Redirect(w, req, "/domains", http.StatusFound)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }
@@ -473,8 +465,8 @@ func (s *Site) postVerifyDomain() (*route, error) {
 // check the records associated with a domain exist
 func (s *Site) getCheckDomain() (*route, error) {
 	r := &route{
-		path:   "/domain/:domain/check",
-		method: "GET",
+		path:    "/domain/:domain/check",
+		methods: []string{"GET"},
 	}
 
 	// setup templates
@@ -498,7 +490,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "domains",
@@ -514,8 +506,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 			ps.ByName("domain"),
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		err = pgxscan.Select(
@@ -526,8 +517,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 			d.Domain.ID,
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		for _, rr := range d.Records {
@@ -542,15 +532,13 @@ func (s *Site) getCheckDomain() (*route, error) {
 				rr.ID,
 			)
 			if err != nil {
-				s.handleError(w, r, err)
-				return
+				return err
 			}
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
-		return
-
-	})
+		return nil
+	}
 
 	return r, nil
 }

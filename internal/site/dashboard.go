@@ -8,8 +8,8 @@ import (
 
 func (s *Site) getDashboard() (*route, error) {
 	r := &route{
-		path:   "/",
-		method: "GET",
+		path:    "/",
+		methods: []string{"GET"},
 	}
 
 	// setup template
@@ -24,13 +24,15 @@ func (s *Site) getDashboard() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "dashboard",
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
+
+		return nil
 	}
 
 	return r, nil

@@ -7,20 +7,22 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-type accountHandle func(accountID int, w http.ResponseWriter, r *http.Request, ps httprouter.Params)
+type accountHandle func(accountID int, w http.ResponseWriter, r *http.Request, ps httprouter.Params) error
 
-func (s *Site) auth(fn accountHandle) httprouter.Handle {
+func (s *Site) auth(r *route) httprouter.Handle {
 	// dirty cache of token to account id
 	cache := make(map[string]int, 0)
 
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 
 		if os.Getenv("MXAX_DEV") == "1" {
-			fn(1, w, r, ps)
+			if err := r.h(1, w, req, ps); err != nil {
+				s.handleError(w, r, err)
+			}
 			return
 		}
 
-		c, err := r.Cookie("mxax_session_token")
+		c, err := req.Cookie("mxax_session_token")
 		if err != nil {
 			if err == http.ErrNoCookie {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -32,7 +34,9 @@ func (s *Site) auth(fn accountHandle) httprouter.Handle {
 		}
 
 		if accountID, ok := cache[c.Value]; ok {
-			fn(accountID, w, r, ps)
+			if err := r.h(accountID, w, req, ps); err != nil {
+				s.handleError(w, r, err)
+			}
 			return
 		}
 

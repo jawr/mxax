@@ -8,34 +8,34 @@ import (
 )
 
 type route struct {
-	path   string
-	method string
-	h      httprouter.Handle
+	path    string
+	methods []string
+	h       accountHandle
 }
 
-func (r route) String() string { return fmt.Sprintf("%s %s", r.method, r.path) }
+func (r route) String() string { return fmt.Sprintf("%v %s", r.methods, r.path) }
 
 type routeFn func() (*route, error)
 
 func (s *Site) setupRoutes() error {
 	s.router = httprouter.New()
 
+	// make these all accountID/auth handlers by default and apply the auth
+	// middleware here
 	routes := []routeFn{
 		s.getDashboard,
 		// domains
 		s.getDomains,
 		s.getDomain,
-		s.getAddDomain,
-		s.postAddDomain,
+		s.getPostAddDomain,
 		s.postVerifyDomain,
 		s.getCheckDomain,
 		// destinations
 		s.getDestinations,
-		s.getCreateDestination,
-		s.postCreateDestination,
+		s.getPostCreateDestination,
 		// aliases
 		s.getAliases,
-		s.getCreateAlias,
+		s.getPostCreateAlias,
 		// log
 		s.getLog,
 		// security
@@ -48,15 +48,17 @@ func (s *Site) setupRoutes() error {
 			return errors.WithMessage(err, r.String())
 		}
 
-		switch r.method {
-		case "GET":
-			s.router.GET(r.path, r.h)
-		case "POST":
-			s.router.POST(r.path, r.h)
-		case "PUT":
-			s.router.POST(r.path, r.h)
-		case "DELETE":
-			s.router.POST(r.path, r.h)
+		for _, method := range r.methods {
+			switch method {
+			case "GET":
+				s.router.GET(r.path, s.auth(r))
+			case "POST":
+				s.router.POST(r.path, s.auth(r))
+			case "PUT":
+				s.router.POST(r.path, s.auth(r))
+			case "DELETE":
+				s.router.POST(r.path, s.auth(r))
+			}
 		}
 	}
 

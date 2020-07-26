@@ -10,8 +10,8 @@ import (
 
 func (s *Site) getAliases() (*route, error) {
 	r := &route{
-		path:   "/aliases",
-		method: "GET",
+		path:    "/aliases",
+		methods: []string{"GET"},
 	}
 
 	// setup template
@@ -34,7 +34,7 @@ func (s *Site) getAliases() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "aliases",
@@ -61,20 +61,21 @@ func (s *Site) getAliases() (*route, error) {
 			accountID,
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }
 
-func (s *Site) getCreateAlias() (*route, error) {
+func (s *Site) getPostCreateAlias() (*route, error) {
 	r := &route{
-		path:   "/aliases/create",
-		method: "GET",
+		path:    "/aliases/create",
+		methods: []string{"GET", "POST"},
 	}
 
 	// setup template
@@ -86,16 +87,27 @@ func (s *Site) getCreateAlias() (*route, error) {
 	// definte template data
 	type data struct {
 		Route string
+
+		Domains      []account.Domain
+		Destinations []account.Destination
 	}
 
 	// actual handler
-	r.h = func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "aliases",
 		}
 
+		// get domains and destinations
+
+		if req.Method == "GET" {
+			return err
+		}
+
 		s.renderTemplate(w, tmpl, r, d)
+
+		return nil
 	}
 
 	return r, nil

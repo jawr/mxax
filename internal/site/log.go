@@ -8,8 +8,8 @@ import (
 
 func (s *Site) getLog() (*route, error) {
 	r := &route{
-		path:   "/log",
-		method: "GET",
+		path:    "/log",
+		methods: []string{"GET"},
 	}
 
 	// setup template
@@ -24,13 +24,15 @@ func (s *Site) getLog() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "log",
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
+
+		return nil
 	}
 
 	return r, nil

@@ -9,14 +9,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func (s *Site) getCreateDestination() (*route, error) {
-	return s.templateResponse("/destinations/create", "GET", "destinations", "templates/pages/create_destination.html")
-}
-
 func (s *Site) getDestinations() (*route, error) {
 	r := &route{
-		path:   "/destinations",
-		method: "GET",
+		path:    "/destinations",
+		methods: []string{"GET"},
 	}
 
 	// setup template
@@ -38,7 +34,7 @@ func (s *Site) getDestinations() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "destinations",
@@ -60,20 +56,21 @@ func (s *Site) getDestinations() (*route, error) {
 			accountID,
 		)
 		if err != nil {
-			s.handleError(w, r, err)
-			return
+			return err
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }
 
-func (s *Site) postCreateDestination() (*route, error) {
+func (s *Site) getPostCreateDestination() (*route, error) {
 	r := &route{
-		path:   "/destinations/create",
-		method: "POST",
+		path:    "/destinations/create",
+		methods: []string{"POST", "GET"},
 	}
 
 	// setup template
@@ -91,11 +88,16 @@ func (s *Site) postCreateDestination() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.auth(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "destinations",
 			Errors: newFormErrors(),
+		}
+
+		if req.Method == "GET" {
+			s.renderTemplate(w, tmpl, r, d)
+			return nil
 		}
 
 		address := req.FormValue("address")
@@ -126,13 +128,15 @@ func (s *Site) postCreateDestination() (*route, error) {
 			} else {
 				// redirect success to addresss page
 				http.Redirect(w, req, "/destinations", http.StatusFound)
-				return
+				return nil
 			}
 		}
 
 		// otherwise display errors
 		s.renderTemplate(w, tmpl, r, d)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }

@@ -53,8 +53,8 @@ func (s *Site) loadTemplate(path string) (*template.Template, error) {
 
 func (s Site) templateResponse(path, method, routeName, templatePath string) (*route, error) {
 	r := &route{
-		path:   path,
-		method: method,
+		path:    path,
+		methods: []string{method},
 	}
 
 	// setup template
@@ -69,14 +69,16 @@ func (s Site) templateResponse(path, method, routeName, templatePath string) (*r
 	}
 
 	// actual handler
-	r.h = s.auth(func(_ int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+	r.h = func(_ int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: routeName,
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
-	})
+
+		return nil
+	}
 
 	return r, nil
 }

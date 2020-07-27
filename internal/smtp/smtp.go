@@ -39,7 +39,7 @@ func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) 
 		emailPublisher:  emailPublisher,
 	}
 
-	// setup handlers closures to keep logic close
+	// setup handlers using closures to keep from polluting the server struct
 	var err error
 
 	server.aliasHandler, err = server.makeAliasHandler(db)
@@ -62,6 +62,7 @@ func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) 
 		return nil, errors.WithMessage(err, "server.makeReturnPathHandler")
 	}
 
+	// setup the underlying smtp server
 	server.s = smtp.NewServer(server)
 
 	if len(os.Getenv("MXAX_DEBUG")) > 0 {
@@ -71,6 +72,8 @@ func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) 
 	return server, nil
 }
 
+// TODO
+// accept a context
 func (s *Server) Run(domain string) error {
 	s.s.Domain = domain
 	return s.s.ListenAndServe()

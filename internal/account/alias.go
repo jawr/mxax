@@ -2,6 +2,7 @@ package account
 
 import (
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,7 +43,7 @@ type Alias struct {
 // Alias' rule. regexp is compiled lazily
 func (a *Alias) Check(user string) (bool, error) {
 	if a.rule == nil {
-		r, err := regexp.Compile(a.Rule)
+		r, err := regexp.Compile(strings.ToLower(a.Rule))
 		if err != nil {
 			return false, err
 		}

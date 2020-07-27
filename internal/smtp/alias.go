@@ -58,6 +58,7 @@ func (s *Server) makeAliasHandler(db *pgx.Conn) (aliasHandlerFn, error) {
 	const defaultTTL = time.Minute * 5
 
 	return func(email string) (int, error) {
+		email = strings.ToLower(email)
 
 		if _, ok := nxmatch.Get(email); ok {
 			return 0, errors.Errorf("nxmatch cache hit for '%s'", email)

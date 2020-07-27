@@ -13,16 +13,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Envelope struct {
+type Email struct {
 	ID      uuid.UUID
 	From    string
 	To      string
 	Message []byte
 }
 
-type queueEnvelopeHandlerFn func(Envelope) error
+type queueEmailHandlerFn func(Email) error
 
-func (s *Server) makeQueueEnvelopeHandler(db *pgx.Conn) (queueEnvelopeHandlerFn, error) {
+func (s *Server) makeQueueEmailHandler(db *pgx.Conn) (queueEmailHandlerFn, error) {
 	destinationMXsCache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).
@@ -32,10 +32,10 @@ func (s *Server) makeQueueEnvelopeHandler(db *pgx.Conn) (queueEnvelopeHandlerFn,
 		return nil, errors.WithMessage(err, "NewCache")
 	}
 
-	return func(env Envelope) error {
+	return func(env Email) error {
 		log.Printf("%s - Queued", env.ID)
 
-		err := func(env Envelope) error {
+		err := func(env Email) error {
 			parts := strings.Split(env.To, "@")
 			if len(parts) != 2 {
 				return errors.Errorf("bad destination: '%s'", env.To)

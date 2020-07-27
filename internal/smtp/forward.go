@@ -210,14 +210,14 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 				return errors.Wrap(err, "dkim.Sign")
 			}
 
-			err = session.server.queueEnvelopeHandler(Envelope{
+			err = session.server.queueEmailHandler(Email{
 				ID:      session.ID,
 				From:    session.To,
 				To:      destination.Address,
 				Message: b.Bytes(),
 			})
 			if err != nil {
-				return errors.Wrap(err, "queueEnvelopeHandler")
+				return errors.Wrap(err, "queueEmailHandler")
 			}
 
 		}

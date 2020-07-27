@@ -12,6 +12,7 @@ require (
 	github.com/georgysavva/scany v0.2.0
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/uuid v1.1.1
+	github.com/isayme/go-amqp-reconnect v0.0.0-20180930040740-e71660afb5ca
 	github.com/jackc/pgtype v1.3.1-0.20200612023650-09efc3839047
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/jackc/pgx/v4 v4.6.1-0.20200606145419-4e5062306904
@@ -21,4 +22,5 @@ require (
 	github.com/likexian/whois-go v1.7.1
 	github.com/miekg/dns v1.1.30
 	github.com/pkg/errors v0.9.1
+	github.com/streadway/amqp v1.0.0 // indirect
 )

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/emersion/go-smtp"
+	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 )
@@ -18,18 +19,24 @@ type Server struct {
 	s  *smtp.Server
 
 	// handlers
-	aliasHandler         aliasHandlerFn
-	queueEnvelopeHandler queueEnvelopeHandlerFn
-	forwardHandler       forwardHandlerFn
-	returnPathHandler    returnPathHandlerFn
+	aliasHandler      aliasHandlerFn
+	queueEmailHandler queueEmailHandlerFn
+	forwardHandler    forwardHandlerFn
+	returnPathHandler returnPathHandlerFn
+
+	// publishers
+	metricPublisher *rabbitmq.Channel
+	emailPublisher  *rabbitmq.Channel
 }
 
 // Create a new Server, currently only handles inbound
 // connections
-func NewServer(db *pgx.Conn) (*Server, error) {
+func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) (*Server, error) {
 
 	server := &Server{
-		db: db,
+		db:              db,
+		metricPublisher: metricPublisher,
+		emailPublisher:  emailPublisher,
 	}
 
 	// setup handlers closures to keep logic close
@@ -40,9 +47,9 @@ func NewServer(db *pgx.Conn) (*Server, error) {
 		return nil, errors.WithMessage(err, "makeAliasHandler")
 	}
 
-	server.queueEnvelopeHandler, err = server.makeQueueEnvelopeHandler(db)
+	server.queueEmailHandler, err = server.makeQueueEmailHandler(db)
 	if err != nil {
-		return nil, errors.WithMessage(err, "makeQueueEnvelopeHandler")
+		return nil, errors.WithMessage(err, "makeQueueEmailHandler")
 	}
 
 	server.forwardHandler, err = server.makeForwardHandler(db)

@@ -142,13 +142,13 @@ func (s *InboundSession) Data(r io.Reader) error {
 	}
 
 	if s.returnPath {
-		if err := s.server.queueEnvelopeHandler(Envelope{
+		if err := s.server.queueEmailHandler(Email{
 			ID:      s.ID,
 			From:    s.From,
 			To:      s.To,
 			Message: s.Message.Bytes(),
 		}); err != nil {
-			log.Printf("%s - Data - queueEnvelopeHandler: %s", s, err)
+			log.Printf("%s - Data - queueEmailHandler: %s", s, err)
 			return errors.Errorf("unable to forward this message (%s)", s)
 		}
 	} else {

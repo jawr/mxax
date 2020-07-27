@@ -21,11 +21,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// On a successful relay, pass to the handler
-type RelayHandler func(session *InboundSession) error
+// On a successful forward, pass to the handler
+type forwardHandlerFn func(session *InboundSession) error
 
 // create an inbound handler that handles the DATA hok
-func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
+func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 	// create various caches
 	dkimKeyCache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
@@ -210,7 +210,7 @@ func MakeRelayHandler(db *pgx.Conn) (RelayHandler, error) {
 				return errors.Wrap(err, "dkim.Sign")
 			}
 
-			err = session.queueEnvelopeHandler(Envelope{
+			err = session.server.queueEnvelopeHandler(Envelope{
 				ID:      session.ID,
 				From:    session.To,
 				To:      destination.Address,

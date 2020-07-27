@@ -20,9 +20,9 @@ type Envelope struct {
 	Message []byte
 }
 
-type QueueEnvelopeHandler func(Envelope) error
+type queueEnvelopeHandlerFn func(Envelope) error
 
-func MakeQueueEnvelopeHandler(db *pgx.Conn) (QueueEnvelopeHandler, error) {
+func (s *Server) makeQueueEnvelopeHandler(db *pgx.Conn) (queueEnvelopeHandlerFn, error) {
 	destinationMXsCache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).
@@ -115,6 +115,8 @@ func MakeQueueEnvelopeHandler(db *pgx.Conn) (QueueEnvelopeHandler, error) {
 		} else {
 			// insert log__inbound_forwards
 		}
+
+		return nil
 
 	}, nil
 }

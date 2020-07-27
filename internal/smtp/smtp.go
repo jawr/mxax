@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/emersion/go-smtp"
+	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 )
 
@@ -13,22 +14,45 @@ import (
 // database. Expected to have a load balancer
 // in front, i.e. HaProxy
 type Server struct {
-	aliasHandler         AliasHandler
-	returnPathHandler    ReturnPathHandler
-	relayHandler         RelayHandler
-	queueEnvelopeHandler QueueEnvelopeHandler
+	db *pgx.Conn
+	s  *smtp.Server
 
-	s *smtp.Server
+	// handlers
+	aliasHandler         aliasHandlerFn
+	queueEnvelopeHandler queueEnvelopeHandlerFn
+	forwardHandler       forwardHandlerFn
+	returnPathHandler    returnPathHandlerFn
 }
 
 // Create a new Server, currently only handles inbound
 // connections
-func NewServer(aliasHandler AliasHandler, returnPathHandler ReturnPathHandler, relayHandler RelayHandler, queueEnvelopeHandler QueueEnvelopeHandler) *Server {
+func NewServer(db *pgx.Conn) (*Server, error) {
+
 	server := &Server{
-		aliasHandler:         aliasHandler,
-		returnPathHandler:    returnPathHandler,
-		relayHandler:         relayHandler,
-		queueEnvelopeHandler: queueEnvelopeHandler,
+		db: db,
+	}
+
+	// setup handlers closures to keep logic close
+	var err error
+
+	server.aliasHandler, err = server.makeAliasHandler(db)
+	if err != nil {
+		return nil, errors.WithMessage(err, "makeAliasHandler")
+	}
+
+	server.queueEnvelopeHandler, err = server.makeQueueEnvelopeHandler(db)
+	if err != nil {
+		return nil, errors.WithMessage(err, "makeQueueEnvelopeHandler")
+	}
+
+	server.forwardHandler, err = server.makeForwardHandler(db)
+	if err != nil {
+		return nil, errors.WithMessage(err, "server.makeForwardHandler")
+	}
+
+	server.returnPathHandler, err = server.makeReturnPathHandler(db)
+	if err != nil {
+		return nil, errors.WithMessage(err, "server.makeReturnPathHandler")
 	}
 
 	server.s = smtp.NewServer(server)
@@ -37,7 +61,7 @@ func NewServer(aliasHandler AliasHandler, returnPathHandler ReturnPathHandler, r
 		server.s.Debug = os.Stdout
 	}
 
-	return server
+	return server, nil
 }
 
 func (s *Server) Run(domain string) error {

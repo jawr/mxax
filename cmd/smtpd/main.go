@@ -29,37 +29,11 @@ func run() error {
 
 	log.Println("Connected to the Database")
 
-	// for inbound sessions, handles the RCPT TO hook
-	aliasHandler, err := smtp.MakeAliasHandler(db)
-	if err != nil {
-		return errors.WithMessage(err, "makeAliasHandler")
-	}
-
-	// for inbound sessions, handles the DATA hook
-	relayHandler, err := smtp.MakeRelayHandler(db)
-	if err != nil {
-		return errors.WithMessage(err, "makeRelayHandler")
-	}
-
-	// for inbound sessions, handles return path at RCPT TO (post/at failed aliasHandler)
-	returnPathHandler, err := smtp.MakeReturnPathHandler(db)
-	if err != nil {
-		return errors.WithMessage(err, "makeReturnPathHandler")
-	}
-
-	// messages to sent get queued here
-	queueEnvelopeHandler, err := smtp.MakeQueueEnvelopeHandler(db)
-	if err != nil {
-		return errors.WithMessage(err, "makeQueueEnvelopeHandler")
-	}
-
 	// server will eventually handle inbound and outbound
-	server := smtp.NewServer(
-		aliasHandler,
-		returnPathHandler,
-		relayHandler,
-		queueEnvelopeHandler,
-	)
+	server, err := smtp.NewServer(db)
+	if err != nil {
+		return errors.WithMessage(err, "NewServer")
+	}
 
 	log.Println("Starting SMTP Server")
 

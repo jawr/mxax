@@ -15,9 +15,9 @@ import (
 // AliasHandler checks to see if the domain is valid
 // and if the domain has any aliases attached that
 // match this email address
-type AliasHandler func(string) (int, error)
+type aliasHandlerFn func(string) (int, error)
 
-func MakeAliasHandler(db *pgx.Conn) (AliasHandler, error) {
+func (s *Server) makeAliasHandler(db *pgx.Conn) (aliasHandlerFn, error) {
 
 	nxdomain, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).

@@ -32,11 +32,8 @@ type InboundSession struct {
 	// account details
 	AliasID int
 
-	// internal interfaces
-	aliasHandler         AliasHandler
-	relayHandler         RelayHandler
-	returnPathHandler    ReturnPathHandler
-	queueEnvelopeHandler QueueEnvelopeHandler
+	// reference to the server
+	server *Server
 
 	// internal flags
 	returnPath bool
@@ -52,14 +49,11 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 	// try use a pool with a self reference to the server, is Logout guaranteed to be called?
 
 	session := InboundSession{
-		ID:                   id,
-		start:                time.Now(),
-		ServerName:           serverName,
-		State:                state,
-		aliasHandler:         s.aliasHandler,
-		relayHandler:         s.relayHandler,
-		returnPathHandler:    s.returnPathHandler,
-		queueEnvelopeHandler: s.queueEnvelopeHandler,
+		ID:         id,
+		start:      time.Now(),
+		ServerName: serverName,
+		State:      state,
+		server:     s,
 	}
 
 	return &session, nil
@@ -107,11 +101,11 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 func (s *InboundSession) Rcpt(to string) error {
 
-	aliasID, err := s.aliasHandler(to)
+	aliasID, err := s.server.aliasHandler(to)
 	if err != nil {
 
-		// check and see if we are a bounce relay
-		returnPath, err := s.returnPathHandler(to)
+		// check and see if we are a bounce forward
+		returnPath, err := s.server.returnPathHandler(to)
 		if err != nil {
 			log.Printf("%s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
 			return errors.Errorf("unknown recipient (%s)", s)
@@ -148,19 +142,19 @@ func (s *InboundSession) Data(r io.Reader) error {
 	}
 
 	if s.returnPath {
-		if err := s.queueEnvelopeHandler(Envelope{
+		if err := s.server.queueEnvelopeHandler(Envelope{
 			ID:      s.ID,
 			From:    s.From,
 			To:      s.To,
 			Message: s.Message.Bytes(),
 		}); err != nil {
 			log.Printf("%s - Data - queueEnvelopeHandler: %s", s, err)
-			return errors.Errorf("unable to relay this message (%s)", s)
+			return errors.Errorf("unable to forward this message (%s)", s)
 		}
 	} else {
-		if err := s.relayHandler(s); err != nil {
-			log.Printf("%s - Data - relayHandler: %s", s, err)
-			return errors.Errorf("unable to relay this message (%s)", s)
+		if err := s.server.forwardHandler(s); err != nil {
+			log.Printf("%s - Data - forwardHandler: %s", s, err)
+			return errors.Errorf("unable to forward this message (%s)", s)
 		}
 	}
 
@@ -171,15 +165,10 @@ func (s *InboundSession) Data(r io.Reader) error {
 
 func (s *InboundSession) Reset() {
 	log.Printf("%s - Reset - after %s", s, time.Since(s.start))
-	s.State = nil
 	s.From = ""
 	s.To = ""
 	s.Message.Reset()
 	s.AliasID = 0
-	s.aliasHandler = nil
-	s.relayHandler = nil
-	s.returnPathHandler = nil
-	s.start = time.Time{}
 	s.returnPath = false
 }
 

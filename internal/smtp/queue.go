@@ -13,6 +13,7 @@ import (
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/jackc/pgx/v4"
+	"github.com/jawr/mxax/internal/metrics"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
 )
@@ -20,15 +21,9 @@ import (
 type queueEmailHandlerFn func(Email) error
 
 func (s *Server) makeQueueEmailHandler(db *pgx.Conn) (queueEmailHandlerFn, error) {
-	pool := sync.Pool{
-		New: func() interface{} {
-			return new(bytes.Buffer)
-		},
-	}
-
 	return func(email Email) error {
-		b := pool.Get().(*bytes.Buffer)
-		defer pool.Put(b)
+		b := s.bufferPool.Get().(*bytes.Buffer)
+		defer s.bufferPool.Put(b)
 		b.Reset()
 
 		if err := json.NewEncoder(b).Encode(&email); err != nil {
@@ -87,8 +82,24 @@ func (s *Server) handleEmails(emailSubscriber <-chan amqp.Delivery) error {
 
 		if err := sendEmail(email); err != nil {
 			log.Printf("Failed to send %s (%s -> %s) [%s]: %s", email.ID, email.From, email.To, time.Since(start))
+			s.publishMetric(metrics.NewInboundBounce(
+				email.From,
+				email.To,
+				err.Error(),
+				email.DomainID,
+				email.AliasID,
+				email.DestinationID,
+				msg.Body,
+			))
 		} else {
 			log.Printf("Sent %s (%s -> %s) [%s]", email.ID, email.From, email.To, time.Since(start))
+			s.publishMetric(metrics.NewInboundForward(
+				email.From,
+				email.To,
+				email.DomainID,
+				email.AliasID,
+				email.DestinationID,
+			))
 		}
 
 	END:

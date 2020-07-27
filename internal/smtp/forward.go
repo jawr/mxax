@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dgraph-io/ristretto"
@@ -61,13 +60,6 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 		tls.VersionTLS11: "TLS1.1",
 		tls.VersionTLS12: "TLS1.2",
 		tls.VersionTLS13: "TLS1.3",
-	}
-
-	// setup a pool for bytes.Buffers
-	pool := sync.Pool{
-		New: func() interface{} {
-			return new(bytes.Buffer)
-		},
 	}
 
 	return func(session *InboundSession) error {
@@ -169,9 +161,9 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 			)
 
 			// write the received header to the buffer
-			final := pool.Get().(*bytes.Buffer)
+			final := s.bufferPool.Get().(*bytes.Buffer)
 			final.Reset()
-			defer pool.Put(final)
+			defer s.bufferPool.Put(final)
 
 			// write return path
 			if _, err := final.WriteString(returnPathHeader); err != nil {
@@ -202,19 +194,22 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 				Hash:     crypto.SHA256,
 			}
 
-			b := pool.Get().(*bytes.Buffer)
+			b := s.bufferPool.Get().(*bytes.Buffer)
 			b.Reset()
-			defer pool.Put(b)
+			defer s.bufferPool.Put(b)
 
 			if err := dkim.Sign(b, final, &opts); err != nil {
 				return errors.Wrap(err, "dkim.Sign")
 			}
 
 			err = session.server.queueEmailHandler(Email{
-				ID:      session.ID,
-				From:    session.To,
-				To:      destination.Address,
-				Message: b.Bytes(),
+				ID:            session.ID,
+				From:          session.To,
+				To:            destination.Address,
+				Message:       b.Bytes(),
+				DomainID:      session.DomainID,
+				AliasID:       session.AliasID,
+				DestinationID: destination.ID,
 			})
 			if err != nil {
 				return errors.Wrap(err, "queueEmailHandler")

@@ -1,8 +1,10 @@
 package smtp
 
 import (
+	"bytes"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/emersion/go-smtp"
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
@@ -20,6 +22,7 @@ type Server struct {
 
 	// handlers
 	aliasHandler      aliasHandlerFn
+	domainHandler     domainHandlerFn
 	queueEmailHandler queueEmailHandlerFn
 	forwardHandler    forwardHandlerFn
 	returnPathHandler returnPathHandlerFn
@@ -27,6 +30,9 @@ type Server struct {
 	// publishers
 	metricPublisher *rabbitmq.Channel
 	emailPublisher  *rabbitmq.Channel
+
+	// bytes pool
+	bufferPool sync.Pool
 }
 
 // Create a new Server, currently only handles inbound
@@ -37,6 +43,9 @@ func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) 
 		db:              db,
 		metricPublisher: metricPublisher,
 		emailPublisher:  emailPublisher,
+		bufferPool: sync.Pool{
+			New: func() interface{} { return new(bytes.Buffer) },
+		},
 	}
 
 	// setup handlers using closures to keep from polluting the server struct
@@ -45,6 +54,11 @@ func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) 
 	server.aliasHandler, err = server.makeAliasHandler(db)
 	if err != nil {
 		return nil, errors.WithMessage(err, "makeAliasHandler")
+	}
+
+	server.domainHandler, err = server.makeDomainHandler(db)
+	if err != nil {
+		return nil, errors.WithMessage(err, "makeDomainHandler")
 	}
 
 	server.queueEmailHandler, err = server.makeQueueEmailHandler(db)

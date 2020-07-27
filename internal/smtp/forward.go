@@ -189,7 +189,7 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 			// sign the email
 			opts := dkim.SignOptions{
 				Domain:   domain.Name,
-				Selector: "default",
+				Selector: "mxax",
 				Signer:   key,
 				Hash:     crypto.SHA256,
 			}

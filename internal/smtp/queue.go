@@ -2,11 +2,16 @@ package smtp
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"log"
+	stdsmtp "net/smtp"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/dgraph-io/ristretto"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
@@ -53,8 +58,54 @@ func (s *Server) makeQueueEmailHandler(db *pgx.Conn) (queueEmailHandlerFn, error
 	}, nil
 }
 
-/*
-func (s *Server) consumeEmails() {
+func (s *Server) handleEmails(emailSubscriber <-chan amqp.Delivery) error {
+	// TODO
+	// temp pace our deliveries, this will need much better logic
+	// to handle bounces
+	tick := time.Tick(time.Minute / 1)
+
+	// make our actual sender
+	sendEmail, err := s.makeSendEmail()
+	if err != nil {
+		return err
+	}
+
+	pool := sync.Pool{
+		New: func() interface{} { return new(Email) },
+	}
+
+	for msg := range emailSubscriber {
+		start := time.Now()
+
+		email := pool.Get().(*Email)
+		email.Reset()
+
+		if err := json.Unmarshal(msg.Body, email); err != nil {
+			log.Printf("Failed to unmarshal msg: %s", err)
+			goto END
+		}
+
+		if err := sendEmail(email); err != nil {
+			log.Printf("Failed to send %s (%s -> %s) [%s]: %s", email.ID, email.From, email.To, time.Since(start))
+		} else {
+			log.Printf("Sent %s (%s -> %s) [%s]", email.ID, email.From, email.To, time.Since(start))
+		}
+
+	END:
+		msg.Ack(false)
+		pool.Put(email)
+
+		<-tick
+	}
+
+	log.Println("Shutting down handleEmails")
+
+	return nil
+}
+
+type sendEmailFn func(*Email) error
+
+func (s *Server) makeSendEmail() (sendEmailFn, error) {
 	destinationMXsCache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).
@@ -64,7 +115,7 @@ func (s *Server) consumeEmails() {
 		return nil, errors.WithMessage(err, "NewCache")
 	}
 
-	fn := func(env Email) error {
+	return func(email *Email) error {
 		parts := strings.Split(email.To, "@")
 		if len(parts) != 2 {
 			return errors.Errorf("bad destination: '%s'", email.To)
@@ -139,4 +190,3 @@ func (s *Server) consumeEmails() {
 		return nil
 	}, nil
 }
-*/

@@ -10,3 +10,10 @@ type Email struct {
 	To      string
 	Message []byte
 }
+
+func (e *Email) Reset() {
+	e.ID = uuid.Nil
+	e.From = ""
+	e.To = ""
+	e.Message = nil
+}

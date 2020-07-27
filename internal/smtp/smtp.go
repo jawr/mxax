@@ -72,13 +72,6 @@ func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) 
 	return server, nil
 }
 
-// TODO
-// accept a context
-func (s *Server) Run(domain string) error {
-	s.s.Domain = domain
-	return s.s.ListenAndServe()
-}
-
 func (s *Server) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
 	// return an OutboundSession
 	return nil, smtp.ErrAuthUnsupported

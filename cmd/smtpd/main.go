@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/smtp"
 	"github.com/pkg/errors"
+	"github.com/streadway/amqp"
 )
 
 func main() {
@@ -22,7 +23,8 @@ func main() {
 func run() error {
 	// setup a cancel context and work out what we want to do
 	// in the event of a rabbitmq failure or such
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// setup  database connection
 	db, err := pgx.Connect(ctx, os.Getenv("MXAX_DB_URL"))
@@ -45,12 +47,26 @@ func run() error {
 	if err != nil {
 		return errors.WithMessage(err, "createPublisher metrics")
 	}
+	defer metricPublisher.Close()
 
 	// setup email publisher
 	emailPublisher, err := createPublisher(rabbitConn, "emails")
 	if err != nil {
 		return errors.WithMessage(err, "createPublisher emails")
 	}
+	defer emailPublisher.Close()
+
+	// setup email subscriber
+	hostname, err := os.Hostname()
+	if err != nil {
+		return errors.WithMessage(err, "Hostname")
+	}
+
+	emailSubscriberCh, emailSubscriber, err := createSubscriber(rabbitConn, "emails", hostname)
+	if err != nil {
+		return errors.WithMessage(err, "createSubscriber emails")
+	}
+	defer emailSubscriberCh.Close()
 
 	log.Println("Connected to the MQ")
 
@@ -62,7 +78,7 @@ func run() error {
 
 	log.Println("Starting SMTP Server")
 
-	if err := server.Run(os.Getenv("MXAX_DOMAIN")); err != nil {
+	if err := server.Run(os.Getenv("MXAX_DOMAIN"), emailSubscriber); err != nil {
 		return errors.WithMessage(err, "server.Run")
 	}
 
@@ -90,4 +106,26 @@ func createPublisher(conn *rabbitmq.Connection, queueName string) (*rabbitmq.Cha
 	}
 
 	return ch, nil
+}
+
+func createSubscriber(conn *rabbitmq.Connection, queueName, name string) (*rabbitmq.Channel, <-chan amqp.Delivery, error) {
+	ch, err := conn.Channel()
+	if err != nil {
+		return nil, nil, errors.WithMessage(err, "subscriber.Channel")
+	}
+
+	msgs, err := ch.Consume(
+		queueName,
+		name,
+		false, // autoack
+		false, // exclusive
+		false, // nolocal
+		false, // nowait
+		nil,
+	)
+	if err != nil {
+		return nil, nil, errors.WithMessage(err, "ch.Consume")
+	}
+
+	return ch, msgs, nil
 }

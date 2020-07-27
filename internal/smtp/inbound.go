@@ -106,7 +106,7 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 }
 
 func (s *InboundSession) rcpt(to string) (int, int, error) {
-	domainID, err := s.server.aliasHandler(to)
+	domainID, err := s.server.domainHandler(to)
 	if err != nil {
 		log.Printf("%s - Rcpt - To: '%s' - domainHandler error: %s", s, to, err)
 		return 0, 0, errors.Errorf("unknown recipient (%s)", s)

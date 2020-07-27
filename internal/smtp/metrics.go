@@ -6,10 +6,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/jawr/mxax/internal/metrics"
 	"github.com/streadway/amqp"
 )
 
-func (s *Server) publishMetric(metric interface{}) {
+func (s *Server) publishMetric(metric metrics.Metric) {
 	b := s.bufferPool.Get().(*bytes.Buffer)
 	defer s.bufferPool.Put(b)
 	b.Reset()
@@ -19,10 +20,24 @@ func (s *Server) publishMetric(metric interface{}) {
 		return
 	}
 
+	b2 := s.bufferPool.Get().(*bytes.Buffer)
+	defer s.bufferPool.Put(b2)
+	b2.Reset()
+
+	wrapper := metrics.Wrapper{
+		Type: metric.Type(),
+		Data: b.Bytes(),
+	}
+
+	if err := json.NewEncoder(b2).Encode(wrapper); err != nil {
+		log.Printf("Error publish metric wrapper encode: %s", err)
+		return
+	}
+
 	msg := amqp.Publishing{
 		Timestamp:   time.Now(),
 		ContentType: "application/json",
-		Body:        b.Bytes(),
+		Body:        b2.Bytes(),
 	}
 
 	err := s.metricPublisher.Publish(

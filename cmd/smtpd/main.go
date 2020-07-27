@@ -62,7 +62,7 @@ func run() error {
 		return errors.WithMessage(err, "Hostname")
 	}
 
-	emailSubscriberCh, emailSubscriber, err := createSubscriber(rabbitConn, "emails", hostname)
+	emailSubscriberCh, emailSubscriber, err := createSubscriber(rabbitConn, "emails", hostname+"smtpd")
 	if err != nil {
 		return errors.WithMessage(err, "createSubscriber emails")
 	}

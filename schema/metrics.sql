@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+
 DROP TABLE metrics__inbound_rejects;
 CREATE TABLE metrics__inbound_rejects (
 	time TIMESTAMPTZ NOT NULL DEFAULT NOW(),

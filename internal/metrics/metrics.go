@@ -1,6 +1,9 @@
 package metrics
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type MetricType int
 
@@ -11,9 +14,13 @@ const (
 )
 
 // wrap our metric for transport
-type Metric struct {
-	T MetricType
-	M []byte
+type Metric interface {
+	Type() MetricType
+}
+
+type Wrapper struct {
+	Type MetricType
+	Data json.RawMessage
 }
 
 // when we do not find an alias or return path

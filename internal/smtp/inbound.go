@@ -109,13 +109,13 @@ func (s *InboundSession) rcpt(to string) (int, int, error) {
 	domainID, err := s.server.domainHandler(to)
 	if err != nil {
 		log.Printf("%s - Rcpt - To: '%s' - domainHandler error: %s", s, to, err)
-		return 0, 0, errors.Errorf("unknown recipient (%s)", s)
+		return domainID, 0, errors.Errorf("unknown recipient (%s)", s)
 	}
 
 	aliasID, err := s.server.aliasHandler(to)
 	if err != nil {
 		log.Printf("%s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
-		return 0, 0, errors.Errorf("unknown recipient (%s)", s)
+		return domainID, aliasID, errors.Errorf("unknown recipient (%s)", s)
 	}
 
 	return domainID, aliasID, nil
@@ -134,8 +134,13 @@ func (s *InboundSession) Rcpt(to string) error {
 		if err != nil || len(returnPath) == 0 {
 			// inc reject metric
 			s.server.publishMetric(metrics.NewInboundReject(s.From, to, domainID))
-			return errors.Errorf("unknown recipient (%s)", s)
+			return &smtp.SMTPError{
+				Code:    550,
+				Message: fmt.Sprintf("unknown recipient (%s)", s),
+			}
 		}
+
+		log.Printf("%s - Rcpt - To: %s Found return path: %s", s, to, returnPath)
 
 		// overwrite to with returnPath and set returnPath flag
 		to = returnPath
@@ -168,6 +173,7 @@ func (s *InboundSession) Data(r io.Reader) error {
 			Message:  s.Message.Bytes(),
 			DomainID: s.DomainID,
 			AliasID:  s.AliasID,
+			Bounce:   "Returned",
 		}); err != nil {
 			log.Printf("%s - Data - queueEmailHandler: %s", s, err)
 			return errors.Errorf("unable to forward this message (%s)", s)
@@ -194,7 +200,7 @@ func (s *InboundSession) Reset() {
 }
 
 func (s *InboundSession) Logout() error {
-	if s.State != nil {
+	if len(s.From) > 0 {
 		s.Reset()
 	}
 	log.Printf("%s - Logout", s)

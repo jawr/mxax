@@ -101,11 +101,16 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 			return errors.WithMessage(err, "getDomain")
 		}
 
+		parts := strings.Split(strings.Replace(session.To, "=", "", -1), "@")
+		if len(parts) != 2 {
+			return errors.Errorf("Invalid email: '%s'", session.To)
+		}
+		returnPath := fmt.Sprintf("%s=%s@%s", parts[0], session.ID, domain.Name)
+
 		// write return path
 		returnPathHeader := fmt.Sprintf(
-			"Return-Path: <%s@%s>\r\n",
-			session.ID,
-			domain.Name,
+			"Return-Path: <%s>\r\n",
+			returnPath,
 		)
 
 		// TODO
@@ -204,6 +209,7 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 
 			err = session.server.queueEmailHandler(Email{
 				ID:            session.ID,
+				ReturnPath:    returnPath,
 				From:          session.To,
 				To:            destination.Address,
 				Message:       b.Bytes(),

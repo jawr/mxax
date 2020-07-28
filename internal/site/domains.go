@@ -63,7 +63,7 @@ func (s *Site) getDomains() (*route, error) {
 					WHERE last_verified_at IS NOT NULL 
 					OR last_verified_at > NOW() - INTERVAL '24 hours'
 				)) as records,
-				COALESCE(COUNT(DISTINCT a.id) FILTER (WHERE catch_all = true)) as catch_all
+				COALESCE(COUNT(DISTINCT a.id) FILTER (WHERE rule = '.*')) as catch_all
 			FROM domains AS d 
 				LEFT JOIN aliases AS a ON d.id = a.domain_id 
 				LEFT JOIN records AS r ON d.id = r.domain_id

@@ -24,8 +24,8 @@ CREATE TABLE metrics__inbound_bounces (
 	time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	from_email TEXT NOT NULL,
 	domain_id INTEGER REFERENCES domains (id),
-	alias_id INTEGER REFERENCES aliases (id),
-	destination_id INTEGER REFERENCES destinations (id),
+	alias_id INTEGER,
+	destination_id INTEGER,
 	message JSONB NOT NULL,
 	reason TEXT NOT NULL
 );

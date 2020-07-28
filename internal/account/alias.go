@@ -29,8 +29,7 @@ type Alias struct {
 
 	DomainID int
 
-	Rule     string
-	CatchAll bool
+	Rule string
 
 	// internal use
 	rule         *regexp.Regexp
@@ -43,7 +42,11 @@ type Alias struct {
 // Alias' rule. regexp is compiled lazily
 func (a *Alias) Check(user string) (bool, error) {
 	if a.rule == nil {
-		r, err := regexp.Compile(strings.ToLower(a.Rule))
+		rule := strings.ToLower(a.Rule)
+		rule = strings.TrimPrefix(rule, "^")
+		rule = strings.TrimSuffix(rule, "$")
+		rule = "^" + rule + "$"
+		r, err := regexp.Compile(rule)
 		if err != nil {
 			return false, err
 		}

@@ -33,13 +33,20 @@ func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error
 			return "", errors.Errorf("bad email: '%s'", to)
 		}
 
+		parts = strings.Split(parts[0], "=")
+		if len(parts) != 2 {
+			return "", errors.Errorf("not an mxax retun path: '%s'", to)
+		}
+
+		returnPath := parts[1]
+
 		// dirty check
-		id, err := uuid.Parse(parts[0])
+		id, err := uuid.Parse(returnPath)
 		if err != nil {
-			return "", errors.WithMessagef(err, "Parse: '%s'", parts[0])
+			return "", errors.WithMessagef(err, "Parse: '%s'", returnPath)
 		}
 		if id == uuid.Nil {
-			return "", errors.Errorf("Nil uuid for '%s'", parts[0])
+			return "", errors.Errorf("Nil uuid for '%s'", returnPath)
 		}
 
 		// check db
@@ -58,9 +65,6 @@ func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error
 			nx.Set(to, struct{}{}, 1)
 			return "", nil
 		}
-
-		// TODO
-		// update db
 
 		_, err = db.Exec(
 			context.Background(),

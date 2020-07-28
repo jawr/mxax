@@ -121,7 +121,7 @@ func run() error {
 				_, err := db.Exec(
 					ctx,
 					`INSERT INTO metrics__inbound_bounces (time,from_email,domain_id,alias_id,destination_id,message,reason)
-					VALUES ($1,$2,$3,$4,$5)`,
+					VALUES ($1,$2,$3,$4,$5,$6,$7)`,
 					m.Time,
 					m.FromEmail,
 					m.DomainID,

@@ -81,18 +81,23 @@ func (s *Server) handleEmails(emailSubscriber <-chan amqp.Delivery) error {
 		}
 
 		if err := sendEmail(email); err != nil {
-			log.Printf("Failed to send %s (%s -> %s) [%s]: %s", email.ID, email.From, email.To, time.Since(start))
+			log.Printf("%s - Bounced (%s -> %s) [%s]: %s", email.ID, email.From, email.To, time.Since(start), err)
+			email.Bounce = err.Error()
+		}
+
+		if len(email.Bounce) > 0 {
 			s.publishMetric(metrics.NewInboundBounce(
 				email.From,
 				email.To,
-				err.Error(),
+				email.Bounce,
 				email.DomainID,
 				email.AliasID,
 				email.DestinationID,
 				msg.Body,
 			))
+
 		} else {
-			log.Printf("Sent %s (%s -> %s) [%s]", email.ID, email.From, email.To, time.Since(start))
+			log.Printf("%s - Sent (%s -> %s) [%s]", email.ID, email.From, email.To, time.Since(start))
 			s.publishMetric(metrics.NewInboundForward(
 				email.From,
 				email.To,
@@ -163,7 +168,12 @@ func (s *Server) makeSendEmail() (sendEmailFn, error) {
 				}
 			}
 
-			if err := client.Mail(email.From); err != nil {
+			returnPath := email.ReturnPath
+			if len(returnPath) == 0 {
+				returnPath = email.From
+			}
+
+			if err := client.Mail(returnPath); err != nil {
 				return errors.WithMessage(err, "Mail")
 			}
 
@@ -176,14 +186,12 @@ func (s *Server) makeSendEmail() (sendEmailFn, error) {
 				return errors.WithMessage(err, "Data")
 			}
 
-			n, err := wc.Write(email.Message)
-			if err != nil {
+			if _, err := wc.Write(email.Message); err != nil {
 				return errors.WithMessage(err, "Write")
 			}
-			log.Printf("%s - wrote %d bytes", email.ID, n)
 
 			if err := wc.Close(); err != nil {
-				return errors.WithMessage(err, "Close")
+				return err
 			}
 
 			if err := client.Quit(); err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
+	"github.com/speps/go-hashids"
 )
 
 type Site struct {
@@ -23,6 +24,8 @@ type Site struct {
 	errorTemplate *template.Template
 
 	sessionStore *badger.DB
+
+	idHasher *hashids.HashID
 }
 
 // eventually if we want to do lots of testing we might want
@@ -36,6 +39,16 @@ func NewSite(db *pgx.Conn) (*Site, error) {
 	tmpl, err = tmpl.ParseGlob("templates/base/*.html")
 	if err != nil {
 		return nil, errors.WithMessage(err, "ParseGlob base")
+	}
+
+	// create id hasher
+	idhData := hashids.NewData()
+	idhData.Salt = "6kbEkDwRLqbbm3n8"
+	idhData.MinLength = 6
+
+	idHasher, err := hashids.NewWithData(idhData)
+	if err != nil {
+		return nil, errors.WithMessage(err, "NewWithData")
 	}
 
 	// create session keystore
@@ -53,6 +66,7 @@ func NewSite(db *pgx.Conn) (*Site, error) {
 		},
 		errorTemplate: tmpl,
 		sessionStore:  sessionStore,
+		idHasher:      idHasher,
 	}
 
 	if err := s.setupRoutes(); err != nil {

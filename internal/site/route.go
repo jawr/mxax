@@ -44,6 +44,8 @@ func (s *Site) setupRoutes() error {
 		// aliases
 		s.getAliases,
 		s.getPostCreateAlias,
+		s.getPostManageAlias,
+		s.getDeleteAliasDestination,
 		// log
 		s.getLog,
 		// security

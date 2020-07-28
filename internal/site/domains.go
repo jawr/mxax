@@ -69,6 +69,7 @@ func (s *Site) getDomains() (*route, error) {
 				LEFT JOIN records AS r ON d.id = r.domain_id
 			WHERE d.account_id = $1
 			GROUP BY d.id
+			ORDER BY d.name
 			`,
 			accountID,
 		); err != nil {
@@ -288,7 +289,7 @@ func (s *Site) getPostAddDomain() (*route, error) {
 			}
 
 			// redirect success to domains page
-			http.Redirect(w, req, "/domains", http.StatusFound)
+			http.Redirect(w, req, "/domain/"+name, http.StatusFound)
 
 			return nil
 		}
@@ -356,7 +357,7 @@ func (s *Site) getDomain() (*route, error) {
 			req.Context(),
 			s.db,
 			&d.Domain.Records,
-			"SELECT * FROM records WHERE domain_id = $1",
+			"SELECT * FROM records WHERE domain_id = $1 ORDER BY rtype, host, id",
 			d.Domain.ID,
 		)
 		if err != nil {
@@ -516,7 +517,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 			req.Context(),
 			s.db,
 			&d.Records,
-			"SELECT * FROM records WHERE domain_id = $1",
+			"SELECT * FROM records WHERE domain_id = $1 ORDER BY rtype, host, id",
 			d.Domain.ID,
 		)
 		if err != nil {

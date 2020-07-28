@@ -172,3 +172,11 @@ func (d Domain) CheckVerifyCode(config *dns.ClientConfig) error {
 
 	return nil
 }
+
+func (d Domain) BuildVerifyRecord() string {
+	return fmt.Sprintf(
+		"%s 10800 IN TXT %s.mx.ax.",
+		d.VerifyCode,
+		d.VerifyCode,
+	)
+}

@@ -1,0 +1,8 @@
+.hover-br-2:hover {
+	border-right-style:solid;
+	border-right-width: 2px;
+}
+
+.hover-b--dark-green:hover {
+	border-color: #137752;
+}

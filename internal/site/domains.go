@@ -249,7 +249,7 @@ func (s *Site) getPostAddDomain() (*route, error) {
 				id,
 				"@",
 				"MX",
-				"10 mx.pageup.uk.",
+				"10 smtp.mx.ax.",
 			)
 			if err != nil {
 				return errors.WithMessage(err, "Insert MX Record")
@@ -265,7 +265,7 @@ func (s *Site) getPostAddDomain() (*route, error) {
 				id,
 				"@",
 				"TXT",
-				`"v=spf1 include:spf.pageup.uk ~all"`,
+				`"v=spf1 include:spf.mx.ax ~all"`,
 			)
 			if err != nil {
 				return errors.WithMessage(err, "Insert SPF Record")

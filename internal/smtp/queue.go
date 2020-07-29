@@ -13,7 +13,7 @@ import (
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/jackc/pgx/v4"
-	"github.com/jawr/mxax/internal/metrics"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
 )
@@ -81,30 +81,32 @@ func (s *Server) handleEmails(emailSubscriber <-chan amqp.Delivery) error {
 		}
 
 		if err := sendEmail(email); err != nil {
-			log.Printf("%s - Bounced (%s -> %s) [%s]: %s", email.ID, email.From, email.To, time.Since(start), err)
+			log.Printf("%s - Bounced (%s -> %s -> %s) [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), err)
 			email.Bounce = err.Error()
 		}
 
 		if len(email.Bounce) > 0 {
-			s.publishMetric(metrics.NewInboundBounce(
-				email.From,
-				email.To,
-				email.Bounce,
-				email.DomainID,
-				email.AliasID,
-				email.DestinationID,
-				msg.Body,
-			))
+			s.publishLogEntry(logger.Entry{
+				ID:        email.ID,
+				DomainID:  email.DomainID,
+				FromEmail: email.From,
+				ViaEmail:  email.Via,
+				ToEmail:   email.To,
+				Etype:     logger.EntryTypeBounce,
+				Status:    email.Bounce,
+				Message:   msg.Body,
+			})
 
 		} else {
-			log.Printf("%s - Sent (%s -> %s) [%s]", email.ID, email.From, email.To, time.Since(start))
-			s.publishMetric(metrics.NewInboundForward(
-				email.From,
-				email.To,
-				email.DomainID,
-				email.AliasID,
-				email.DestinationID,
-			))
+			log.Printf("%s - Sent (%s -> %s -> %s) [%s]", email.ID, email.From, email.Via, email.To, time.Since(start))
+			s.publishLogEntry(logger.Entry{
+				ID:        email.ID,
+				DomainID:  email.DomainID,
+				FromEmail: email.From,
+				ViaEmail:  email.Via,
+				ToEmail:   email.To,
+				Etype:     logger.EntryTypeSend,
+			})
 		}
 
 	END:

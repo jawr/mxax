@@ -11,7 +11,7 @@ import (
 	"blitiri.com.ar/go/spf"
 	"github.com/emersion/go-smtp"
 	"github.com/google/uuid"
-	"github.com/jawr/mxax/internal/metrics"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/pkg/errors"
 )
 
@@ -27,6 +27,7 @@ type InboundSession struct {
 
 	// email
 	From    string
+	Via     string
 	To      string
 	Message bytes.Buffer
 
@@ -86,7 +87,12 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 	if result == spf.Fail {
 		// inc reject metric
-		s.server.publishMetric(metrics.NewInboundReject(s.From, "", 0))
+		s.server.publishLogEntry(logger.Entry{
+			ID:        s.ID,
+			FromEmail: from,
+			Etype:     logger.EntryTypeReject,
+			Status:    "SPF Fail",
+		})
 
 		log.Printf(
 			"%s - Mail - CheckHostWithSender spf.Fail: ip: %s hostname: %s from: %s",
@@ -126,25 +132,32 @@ func (s *InboundSession) Rcpt(to string) error {
 	domainID, aliasID, err := s.rcpt(to)
 	if err != nil {
 
-		returnPath, err := s.server.returnPathHandler(to)
+		oID, returnPath, err := s.server.returnPathHandler(to)
 		if err != nil {
 			log.Printf("%s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
 		}
 
 		if err != nil || len(returnPath) == 0 {
 			// inc reject metric
-			s.server.publishMetric(metrics.NewInboundReject(s.From, to, domainID))
+			s.server.publishLogEntry(logger.Entry{
+				DomainID:  domainID,
+				FromEmail: s.From,
+				ViaEmail:  to,
+				Etype:     logger.EntryTypeReject,
+			})
 			return &smtp.SMTPError{
 				Code:    550,
 				Message: fmt.Sprintf("unknown recipient (%s)", s),
 			}
 		}
 
-		log.Printf("%s - Rcpt - To: %s Found return path: %s", s, to, returnPath)
+		log.Printf("%s - Rcpt - To: %s Found return path: %s reset id to %s", s, to, returnPath, oID)
 
 		// overwrite to with returnPath and set returnPath flag
+		s.Via = to
 		to = returnPath
 		s.returnPath = true
+		s.ID = oID
 	}
 
 	s.DomainID = domainID
@@ -169,6 +182,7 @@ func (s *InboundSession) Data(r io.Reader) error {
 		if err := s.server.queueEmailHandler(Email{
 			ID:       s.ID,
 			From:     s.From,
+			Via:      s.Via,
 			To:       s.To,
 			Message:  s.Message.Bytes(),
 			DomainID: s.DomainID,

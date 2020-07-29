@@ -8,6 +8,7 @@ type Email struct {
 	ID         uuid.UUID
 	From       string
 	ReturnPath string
+	Via        string
 	To         string
 	Message    []byte
 
@@ -22,6 +23,8 @@ type Email struct {
 func (e *Email) Reset() {
 	e.ID = uuid.Nil
 	e.From = ""
+	e.ReturnPath = ""
+	e.Via = ""
 	e.To = ""
 	e.Message = nil
 	e.DomainID = 0

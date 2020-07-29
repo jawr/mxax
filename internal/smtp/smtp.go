@@ -28,8 +28,8 @@ type Server struct {
 	returnPathHandler returnPathHandlerFn
 
 	// publishers
-	metricPublisher *rabbitmq.Channel
-	emailPublisher  *rabbitmq.Channel
+	logPublisher   *rabbitmq.Channel
+	emailPublisher *rabbitmq.Channel
 
 	// bytes pool
 	bufferPool sync.Pool
@@ -37,12 +37,12 @@ type Server struct {
 
 // Create a new Server, currently only handles inbound
 // connections
-func NewServer(db *pgx.Conn, metricPublisher, emailPublisher *rabbitmq.Channel) (*Server, error) {
+func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*Server, error) {
 
 	server := &Server{
-		db:              db,
-		metricPublisher: metricPublisher,
-		emailPublisher:  emailPublisher,
+		db:             db,
+		logPublisher:   logPublisher,
+		emailPublisher: emailPublisher,
 		bufferPool: sync.Pool{
 			New: func() interface{} { return new(bytes.Buffer) },
 		},

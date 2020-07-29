@@ -210,7 +210,8 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 			err = session.server.queueEmailHandler(Email{
 				ID:            session.ID,
 				ReturnPath:    returnPath,
-				From:          session.To,
+				From:          session.From,
+				Via:           session.To,
 				To:            destination.Address,
 				Message:       b.Bytes(),
 				DomainID:      session.DomainID,

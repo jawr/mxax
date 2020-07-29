@@ -10,7 +10,7 @@ import (
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
-	"github.com/jawr/mxax/internal/metrics"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
 )
@@ -49,11 +49,11 @@ func run() error {
 		return errors.WithMessage(err, "Hostname")
 	}
 
-	metricsSubscriberCh, metricsSubscriber, err := createSubscriber(rabbitConn, "metrics", hostname+"metrics")
+	logsSubscriberCh, logsSubscriber, err := createSubscriber(rabbitConn, "logs", hostname+"logs")
 	if err != nil {
-		return errors.WithMessage(err, "createSubscriber metrics")
+		return errors.WithMessage(err, "createSubscriber logs")
 	}
-	defer metricsSubscriberCh.Close()
+	defer logsSubscriberCh.Close()
 
 	log.Println("Connected to the MQ")
 
@@ -67,72 +67,40 @@ func run() error {
 			return errors.New("done")
 		case <-quit:
 			return nil
-		case msg := <-metricsSubscriber:
-			var w metrics.Wrapper
-			if err := json.Unmarshal(msg.Body, &w); err != nil {
-				// temp
+		case msg := <-logsSubscriber:
+			var e logger.Entry
+			if err := json.Unmarshal(msg.Body, &e); err != nil {
 				return err
 			}
 
-			switch w.Type {
-			case metrics.MetricTypeInboundReject:
-				var m metrics.InboundReject
-				if err := json.Unmarshal(w.Data, &m); err != nil {
-					return err
-				}
-
-				_, err := db.Exec(
-					ctx,
-					`INSERT INTO metrics__inbound_rejects (time,from_email,to_email,domain_id)
-					VALUES ($1,$2,$3,$4)`,
-					m.Time,
-					m.FromEmail,
-					m.ToEmail,
-					m.DomainID,
-				)
-				if err != nil {
-					return err
-				}
-			case metrics.MetricTypeInboundForward:
-				var m metrics.InboundForward
-				if err := json.Unmarshal(w.Data, &m); err != nil {
-					return err
-				}
-
-				_, err := db.Exec(
-					ctx,
-					`INSERT INTO metrics__inbound_forwards (time,from_email,domain_id,alias_id,destination_id)
-					VALUES ($1,$2,$3,$4,$5)`,
-					m.Time,
-					m.FromEmail,
-					m.DomainID,
-					m.AliasID,
-					m.DestinationID,
-				)
-				if err != nil {
-					return err
-				}
-			case metrics.MetricTypeInboundBounce:
-				var m metrics.InboundBounce
-				if err := json.Unmarshal(w.Data, &m); err != nil {
-					return err
-				}
-
-				_, err := db.Exec(
-					ctx,
-					`INSERT INTO metrics__inbound_bounces (time,from_email,domain_id,alias_id,destination_id,message,reason)
-					VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-					m.Time,
-					m.FromEmail,
-					m.DomainID,
-					m.AliasID,
-					m.DestinationID,
-					m.Message,
-					m.Reason,
-				)
-				if err != nil {
-					return err
-				}
+			_, err := db.Exec(
+				ctx,
+				`
+				INSERT INTO logs 
+					(
+						time,
+						id,
+						domain_id,
+						from_email,
+						via_email,
+						to_email,
+						etype,
+						status,
+						message
+					)
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+				e.Time,
+				e.ID,
+				e.DomainID,
+				e.FromEmail,
+				e.ViaEmail,
+				e.ToEmail,
+				e.Etype,
+				e.Status,
+				e.Message,
+			)
+			if err != nil {
+				return err
 			}
 
 			msg.Ack(false)

@@ -42,10 +42,10 @@ func run() error {
 	}
 	defer rabbitConn.Close()
 
-	// setup metrics publisher
-	metricPublisher, err := createPublisher(rabbitConn, "metrics")
+	// setup logs publisher
+	metricPublisher, err := createPublisher(rabbitConn, "logs")
 	if err != nil {
-		return errors.WithMessage(err, "createPublisher metrics")
+		return errors.WithMessage(err, "createPublisher logs")
 	}
 	defer metricPublisher.Close()
 

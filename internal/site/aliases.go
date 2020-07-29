@@ -216,15 +216,14 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 			req.Context(),
 			`
 			WITH e AS (
-				INSERT INTO aliases (domain_id, rule, catch_all) 
-				VALUES ($1, $2, $3) 
-				ON CONFLICT (domain_id, rule) UPDATE deleted_at = NULL RETURNING id
+				INSERT INTO aliases (domain_id, rule) 
+				VALUES ($1, $2) 
+				ON CONFLICT (domain_id, rule) DO UPDATE SET deleted_at = NULL RETURNING id
 			)
 			SELECT * FROM e UNION SELECT id FROM aliases WHERE domain_id = $1 AND rule = $2
 			`,
 			domainID,
 			rule,
-			false,
 		).Scan(&aliasID)
 		if err != nil {
 			log.Printf("Error inserting alias (%d,%s,%t): %s", domainID, rule, false, err)

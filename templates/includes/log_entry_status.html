@@ -1,0 +1,10 @@
+{{define "log_entry_status"}}
+
+{{if eq .Etype 0}}
+<span class="br1 f7 tc pv1 ph2 ba b--green green b">Sent</span>
+{{else if eq .Etype 1}}
+<span class="br1 f7 tc pv1 ph2 ba b--red red b">Rejected</span>
+{{else if eq .Etype 2}}
+<span class="br1 f7 tc pv1 ph2 ba b--gray gray b" title="{{.Status}}">Bounced</span>
+{{end}}
+{{end}}

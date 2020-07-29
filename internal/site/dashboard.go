@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/georgysavva/scany/pgxscan"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -23,10 +24,10 @@ func (s *Site) getDashboard() (*route, error) {
 	type data struct {
 		Route string
 
-		Labels         []string
-		InboundForward []int
-		InboundBounce  []int
-		InboundReject  []int
+		Labels        []string
+		InboundSend   []int
+		InboundBounce []int
+		InboundReject []int
 	}
 
 	// actual handler
@@ -57,39 +58,41 @@ func (s *Site) getDashboard() (*route, error) {
 		err = pgxscan.Select(
 			req.Context(),
 			s.db,
-			&d.InboundForward,
+			&d.InboundSend,
 			`
-WITH series AS (
-    SELECT date_trunc(
-        'hour',
-        generate_series(
-            NOW() - INTERVAL '24 HOURS',
-            NOW(),
-            INTERVAL '1 HOUR'
-        )
-    ) AS hour
-), metrics AS (
-    SELECT
-        date_trunc('hour', m.time) AS hour,
-        COUNT(m.*) AS cnt
-    FROM metrics__inbound_forwards AS m
-        JOIN domains AS d ON m.domain_id = d.id
-    WHERE
-        d.account_id = $1
-        AND time > NOW() - INTERVAL '24 HOURS'
-    GROUP BY 1
-    ORDER BY 1
-)
-SELECT
-    COALESCE(SUM(metrics.cnt), 0)
-    
-    FROM series
-        LEFT JOIN metrics ON series.hour = metrics.hour
+			WITH series AS (
+				SELECT date_trunc(
+					'hour',
+					generate_series(
+						NOW() - INTERVAL '24 HOURS',
+						NOW(),
+						INTERVAL '1 HOUR'
+					)
+				) AS hour
+			), metrics AS (
+				SELECT
+					date_trunc('hour', l.time) AS hour,
+					COUNT(l.*) AS cnt
+				FROM logs AS l
+					JOIN domains AS d ON l.domain_id = d.id
+				WHERE
+					d.account_id = $1
+					AND time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $2
+				GROUP BY 1
+				ORDER BY 1
+			)
+			SELECT
+				COALESCE(SUM(metrics.cnt), 0)
+				
+			FROM series
+				LEFT JOIN metrics ON series.hour = metrics.hour
 
-    GROUP BY series.hour
-    ORDER BY series.hour
-`,
+			GROUP BY series.hour
+			ORDER BY series.hour
+			`,
 			accountID,
+			logger.EntryTypeSend,
 		)
 		if err != nil {
 			return err
@@ -100,37 +103,39 @@ SELECT
 			s.db,
 			&d.InboundBounce,
 			`
-WITH series AS (
-    SELECT date_trunc(
-        'hour',
-        generate_series(
-            NOW() - INTERVAL '24 HOURS',
-            NOW(),
-            INTERVAL '1 HOUR'
-        )
-    ) AS hour
-), metrics AS (
-    SELECT
-        date_trunc('hour', m.time) AS hour,
-        COUNT(m.*) AS cnt
-    FROM metrics__inbound_bounces AS m
-        JOIN domains AS d ON m.domain_id = d.id
-    WHERE
-        d.account_id = $1
-        AND time > NOW() - INTERVAL '24 HOURS'
-    GROUP BY 1
-    ORDER BY 1
-)
-SELECT
-    COALESCE(SUM(metrics.cnt), 0)
-    
-    FROM series
-        LEFT JOIN metrics ON series.hour = metrics.hour
+			WITH series AS (
+				SELECT date_trunc(
+					'hour',
+					generate_series(
+						NOW() - INTERVAL '24 HOURS',
+						NOW(),
+						INTERVAL '1 HOUR'
+					)
+				) AS hour
+			), metrics AS (
+				SELECT
+					date_trunc('hour', l.time) AS hour,
+					COUNT(l.*) AS cnt
+				FROM logs AS l
+					JOIN domains AS d ON l.domain_id = d.id
+				WHERE
+					d.account_id = $1
+					AND time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $2
+				GROUP BY 1
+				ORDER BY 1
+			)
+			SELECT
+				COALESCE(SUM(metrics.cnt), 0)
+				
+			FROM series
+				LEFT JOIN metrics ON series.hour = metrics.hour
 
-    GROUP BY series.hour
-    ORDER BY series.hour
-`,
+			GROUP BY series.hour
+			ORDER BY series.hour
+			`,
 			accountID,
+			logger.EntryTypeBounce,
 		)
 		if err != nil {
 			return err
@@ -141,37 +146,39 @@ SELECT
 			s.db,
 			&d.InboundReject,
 			`
-WITH series AS (
-    SELECT date_trunc(
-        'hour',
-        generate_series(
-            NOW() - INTERVAL '24 HOURS',
-            NOW(),
-            INTERVAL '1 HOUR'
-        )
-    ) AS hour
-), metrics AS (
-    SELECT
-        date_trunc('hour', m.time) AS hour,
-        COUNT(m.*) AS cnt
-    FROM metrics__inbound_rejects AS m
-        JOIN domains AS d ON m.domain_id = d.id
-    WHERE
-        d.account_id = $1
-        AND time > NOW() - INTERVAL '24 HOURS'
-    GROUP BY 1
-    ORDER BY 1
-)
-SELECT
-    COALESCE(SUM(metrics.cnt), 0)
-    
-    FROM series
-        LEFT JOIN metrics ON series.hour = metrics.hour
+			WITH series AS (
+				SELECT date_trunc(
+					'hour',
+					generate_series(
+						NOW() - INTERVAL '24 HOURS',
+						NOW(),
+						INTERVAL '1 HOUR'
+					)
+				) AS hour
+			), metrics AS (
+				SELECT
+					date_trunc('hour', l.time) AS hour,
+					COUNT(l.*) AS cnt
+				FROM logs AS l
+					JOIN domains AS d ON l.domain_id = d.id
+				WHERE
+					d.account_id = $1
+					AND time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $2
+				GROUP BY 1
+				ORDER BY 1
+			)
+			SELECT
+				COALESCE(SUM(metrics.cnt), 0)
+				
+			FROM series
+				LEFT JOIN metrics ON series.hour = metrics.hour
 
-    GROUP BY series.hour
-    ORDER BY series.hour
-`,
+			GROUP BY series.hour
+			ORDER BY series.hour
+			`,
 			accountID,
+			logger.EntryTypeBounce,
 		)
 		if err != nil {
 			return err

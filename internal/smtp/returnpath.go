@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type returnPathHandlerFn = func(string) (string, error)
+type returnPathHandlerFn = func(string) (uuid.UUID, string, error)
 
 func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error) {
 	nx, err := ristretto.NewCache(&ristretto.Config{
@@ -22,20 +22,20 @@ func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error
 		return nil, errors.WithMessage(err, "NewCache")
 	}
 
-	return func(to string) (string, error) {
+	return func(to string) (uuid.UUID, string, error) {
 		// check nx
 		if _, ok := nx.Get(to); ok {
-			return "", errors.Errorf("nx cache hit for '%s'", to)
+			return uuid.Nil, "", errors.Errorf("nx cache hit for '%s'", to)
 		}
 
 		parts := strings.Split(to, "@")
 		if len(parts) != 2 {
-			return "", errors.Errorf("bad email: '%s'", to)
+			return uuid.Nil, "", errors.Errorf("bad email: '%s'", to)
 		}
 
 		parts = strings.Split(parts[0], "=")
 		if len(parts) != 2 {
-			return "", errors.Errorf("not an mxax retun path: '%s'", to)
+			return uuid.Nil, "", errors.Errorf("not an mxax retun path: '%s'", to)
 		}
 
 		returnPath := parts[1]
@@ -43,10 +43,10 @@ func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error
 		// dirty check
 		id, err := uuid.Parse(returnPath)
 		if err != nil {
-			return "", errors.WithMessagef(err, "Parse: '%s'", returnPath)
+			return uuid.Nil, "", errors.WithMessagef(err, "Parse: '%s'", returnPath)
 		}
 		if id == uuid.Nil {
-			return "", errors.Errorf("Nil uuid for '%s'", returnPath)
+			return uuid.Nil, "", errors.Errorf("Nil uuid for '%s'", returnPath)
 		}
 
 		// check db
@@ -57,13 +57,13 @@ func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error
 			id,
 		).Scan(&replyTo)
 		if err != nil {
-			return "", errors.WithMessage(err, "Select")
+			return uuid.Nil, "", errors.WithMessage(err, "Select")
 		}
 
 		// if nothing found update and return
 		if len(replyTo) == 0 {
 			nx.Set(to, struct{}{}, 1)
-			return "", nil
+			return uuid.Nil, "", nil
 		}
 
 		_, err = db.Exec(
@@ -72,9 +72,9 @@ func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error
 			id,
 		)
 		if err != nil {
-			return "", errors.WithMessage(err, "Update")
+			return uuid.Nil, "", errors.WithMessage(err, "Update")
 		}
 
-		return replyTo, nil
+		return id, replyTo, nil
 	}, nil
 }

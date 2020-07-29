@@ -6,49 +6,37 @@ import (
 	"log"
 	"time"
 
-	"github.com/jawr/mxax/internal/metrics"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/streadway/amqp"
 )
 
-func (s *Server) publishMetric(metric metrics.Metric) {
+func (s *Server) publishLogEntry(entry logger.Entry) {
 	b := s.bufferPool.Get().(*bytes.Buffer)
 	defer s.bufferPool.Put(b)
 	b.Reset()
 
-	if err := json.NewEncoder(b).Encode(metric); err != nil {
-		log.Printf("Error publish metric encode: %s", err)
-		return
-	}
+	entry.Time = time.Now()
 
-	b2 := s.bufferPool.Get().(*bytes.Buffer)
-	defer s.bufferPool.Put(b2)
-	b2.Reset()
-
-	wrapper := metrics.Wrapper{
-		Type: metric.Type(),
-		Data: b.Bytes(),
-	}
-
-	if err := json.NewEncoder(b2).Encode(wrapper); err != nil {
-		log.Printf("Error publish metric wrapper encode: %s", err)
+	if err := json.NewEncoder(b).Encode(entry); err != nil {
+		log.Printf("Error publish entry encode: %s", err)
 		return
 	}
 
 	msg := amqp.Publishing{
 		Timestamp:   time.Now(),
 		ContentType: "application/json",
-		Body:        b2.Bytes(),
+		Body:        b.Bytes(),
 	}
 
-	err := s.metricPublisher.Publish(
+	err := s.logPublisher.Publish(
 		"",
-		"metrics",
+		"logs",
 		false, // mandatory
 		false, // immediate
 		msg,
 	)
 	if err != nil {
-		log.Printf("Error publish metric: %s", err)
+		log.Printf("Error publish entry: %s", err)
 		return
 	}
 }

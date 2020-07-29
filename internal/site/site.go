@@ -21,7 +21,8 @@ type Site struct {
 	router     *httprouter.Router
 	bufferPool sync.Pool
 
-	errorTemplate *template.Template
+	errorTemplate  *template.Template
+	verifyTemplate *template.Template
 
 	sessionStore *badger.DB
 
@@ -31,12 +32,23 @@ type Site struct {
 // eventually if we want to do lots of testing we might want
 // to swap out db for a bunch of interfaces for each route
 func NewSite(db *pgx.Conn) (*Site, error) {
-	tmpl, err := template.ParseFiles("templates/errors/index.html")
+	// errorTemplate
+	errorTemplate, err := template.ParseFiles("templates/errors/index.html")
 	if err != nil {
 		return nil, errors.WithMessage(err, "ParseFiles errors/index.html")
 	}
 
-	tmpl, err = tmpl.ParseGlob("templates/base/*.html")
+	errorTemplate, err = errorTemplate.ParseGlob("templates/base/*.html")
+	if err != nil {
+		return nil, errors.WithMessage(err, "ParseGlob base")
+	}
+
+	verifyTemplate, err := template.ParseFiles("templates/pages/verify_action.html")
+	if err != nil {
+		return nil, errors.WithMessage(err, "ParseFiles errors/index.html")
+	}
+
+	verifyTemplate, err = verifyTemplate.ParseGlob("templates/base/*.html")
 	if err != nil {
 		return nil, errors.WithMessage(err, "ParseGlob base")
 	}
@@ -64,9 +76,10 @@ func NewSite(db *pgx.Conn) (*Site, error) {
 				return new(bytes.Buffer)
 			},
 		},
-		errorTemplate: tmpl,
-		sessionStore:  sessionStore,
-		idHasher:      idHasher,
+		errorTemplate:  errorTemplate,
+		verifyTemplate: verifyTemplate,
+		sessionStore:   sessionStore,
+		idHasher:       idHasher,
 	}
 
 	if err := s.setupRoutes(); err != nil {

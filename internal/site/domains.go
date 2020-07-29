@@ -547,7 +547,7 @@ func (s *Site) getDeleteDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.verifyAction(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		var domain account.Domain
 
@@ -613,7 +613,7 @@ func (s *Site) getDeleteDomain() (*route, error) {
 		http.Redirect(w, req, "/domains", http.StatusFound)
 
 		return nil
-	}
+	})
 
 	return r, nil
 }

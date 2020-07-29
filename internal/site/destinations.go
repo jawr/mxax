@@ -159,7 +159,7 @@ func (s *Site) getDeleteDestination() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.verifyAction(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		ids := s.idHasher.Decode(ps.ByName("hash"))
 		if len(ids) != 1 {
@@ -214,7 +214,7 @@ func (s *Site) getDeleteDestination() (*route, error) {
 		http.Redirect(w, req, "/destinations", http.StatusFound)
 
 		return nil
-	}
+	})
 
 	return r, nil
 }

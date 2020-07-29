@@ -63,6 +63,7 @@ func (s *Site) getAliases() (*route, error) {
 					LEFT JOIN destinations AS d ON ad.destination_id = d.id
 				WHERE
 					dom.account_id = $1
+					AND a.deleted_at IS NULL
 				GROUP BY a.id, dom.name
 				ORDER BY dom.name, a.rule
 			`,
@@ -124,7 +125,7 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 			req.Context(),
 			s.db,
 			&d.Domains,
-			`SELECT * FROM domains WHERE account_id = $1 AND verified_at IS NOT NULL ORDER BY name`,
+			`SELECT * FROM domains WHERE account_id = $1 AND verified_at IS NOT NULL AND deleted_at IS NULL ORDER BY name`,
 			accountID,
 		)
 		if err != nil {
@@ -135,7 +136,7 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 			req.Context(),
 			s.db,
 			&d.Destinations,
-			`SELECT * FROM destinations WHERE account_id = $1 ORDER BY address`,
+			`SELECT * FROM destinations WHERE account_id = $1 AND deleted_at IS NULL ORDER BY address`,
 			accountID,
 		)
 		if err != nil {
@@ -195,7 +196,7 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 		// validate that destination belongs to this account
 		err = s.db.QueryRow(
 			req.Context(),
-			`SELECT COUNT(*) FROM destinations WHERE id = $1 AND account_id = $2`,
+			`SELECT COUNT(*) FROM destinations WHERE id = $1 AND account_id = $2 AND deleted_at IS NULL`,
 			destinationID,
 			accountID,
 		).Scan(&count)
@@ -217,7 +218,7 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 			WITH e AS (
 				INSERT INTO aliases (domain_id, rule, catch_all) 
 				VALUES ($1, $2, $3) 
-				ON CONFLICT (domain_id, rule) DO NOTHING RETURNING id
+				ON CONFLICT (domain_id, rule) UPDATE deleted_at = NULL RETURNING id
 			)
 			SELECT * FROM e UNION SELECT id FROM aliases WHERE domain_id = $1 AND rule = $2
 			`,
@@ -318,7 +319,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			SELECT a.* 
 			FROM aliases AS a 
 				JOIN domains AS d ON a.domain_id = d.id 
-			WHERE a.id = $1 AND d.account_id = $2
+			WHERE a.id = $1 AND d.account_id = $2 AND d.deleted_at IS NULL
 			`,
 			aliasID,
 			accountID,
@@ -353,7 +354,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			FROM destinations 
 			WHERE account_id = $1 AND id NOT IN (
 				SELECT destination_id FROM alias_destinations WHERE alias_id = $2		
-			) ORDER BY address`,
+			) AND deleted_at IS NULL ORDER BY address`,
 			accountID,
 			aliasID,
 		)
@@ -369,7 +370,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			SELECT d.* 
 			FROM destinations AS d 
 				JOIN alias_destinations AS ad on ad.destination_id = d.id
-			WHERE d.account_id = $1 AND ad.alias_id = $2
+			WHERE d.account_id = $1 AND ad.alias_id = $2 AND d.deleted_at IS NULL
 			ORDER BY d.address
 			`,
 			accountID,
@@ -403,7 +404,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		var count int
 		err = s.db.QueryRow(
 			req.Context(),
-			`SELECT COUNT(*) FROM destinations WHERE id = $1 AND account_id = $2`,
+			`SELECT COUNT(*) FROM destinations WHERE id = $1 AND account_id = $2 AND delted_at IS NULL`,
 			destinationID,
 			accountID,
 		).Scan(&count)
@@ -446,7 +447,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 
 func (s *Site) getDeleteAliasDestination() (*route, error) {
 	r := &route{
-		path:    "/alias/destination/:hash",
+		path:    "/alias/destination/delete/:hash",
 		methods: []string{"GET"},
 	}
 
@@ -473,7 +474,7 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 			SELECT a.* 
 			FROM aliases AS a 
 				JOIN domains AS d ON a.domain_id = d.id 
-			WHERE a.id = $1 AND d.account_id = $2
+			WHERE a.id = $1 AND d.account_id = $2 AND a.deleted_at IS NULL
 			`,
 			aliasID,
 			accountID,
@@ -490,7 +491,7 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 			`
 			SELECT * 
 			FROM destinations
-			WHERE id = $1 AND account_id = $2
+			WHERE id = $1 AND account_id = $2 AND deleted_at IS NULL
 			`,
 			destinationID,
 			accountID,
@@ -515,6 +516,78 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 		}
 
 		http.Redirect(w, req, "/alias/manage/"+aliasHID, http.StatusFound)
+
+		return nil
+	}
+
+	return r, nil
+}
+
+func (s *Site) getDeleteAlias() (*route, error) {
+	r := &route{
+		path:    "/alias/delete/:hash",
+		methods: []string{"GET"},
+	}
+
+	// actual handler
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+
+		ids := s.idHasher.Decode(ps.ByName("hash"))
+		if len(ids) != 1 {
+			return errors.New("No id found")
+		}
+
+		aliasID := ids[0]
+
+		var alias account.Alias
+
+		// get alias
+		err := pgxscan.Get(
+			req.Context(),
+			s.db,
+			&alias,
+			`
+			SELECT a.* 
+			FROM aliases AS a 
+				JOIN domains AS d ON a.domain_id = d.id 
+			WHERE a.id = $1 AND d.account_id = $2
+			`,
+			aliasID,
+			accountID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Get Alias")
+		}
+
+		tx, err := s.db.Begin(req.Context())
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(req.Context())
+
+		_, err = tx.Exec(
+			req.Context(),
+			"DELETE FROM alias_destinations WHERE alias_id = $1",
+			alias.ID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Delete")
+		}
+
+		_, err = tx.Exec(
+			req.Context(),
+			"UPDATE aliases SET deleted_at = NOW() WHERE ID = $1",
+			alias.ID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Delete")
+		}
+
+		if err := tx.Commit(req.Context()); err != nil {
+			return err
+		}
+
+		http.Redirect(w, req, "/aliases", http.StatusFound)
 
 		return nil
 	}

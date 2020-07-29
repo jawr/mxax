@@ -7,6 +7,7 @@ import (
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
 )
 
 func (s *Site) getDestinations() (*route, error) {
@@ -24,6 +25,7 @@ func (s *Site) getDestinations() (*route, error) {
 	type Destination struct {
 		account.Destination
 		Aliases int
+		HID     string
 	}
 
 	// definte template data
@@ -51,12 +53,22 @@ func (s *Site) getDestinations() (*route, error) {
 			FROM destinations AS d
 				LEFT JOIN alias_destinations AS ad ON d.id = ad.destination_id
 			WHERE d.account_id = $1
+				AND d.deleted_at IS NULL
 			GROUP BY d.id
 			`,
 			accountID,
 		)
 		if err != nil {
 			return err
+		}
+
+		for idx := range d.Destinations {
+			d.Destinations[idx].HID, err = s.idHasher.Encode([]int{
+				d.Destinations[idx].ID,
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
@@ -134,6 +146,72 @@ func (s *Site) getPostCreateDestination() (*route, error) {
 
 		// otherwise display errors
 		s.renderTemplate(w, tmpl, r, d)
+
+		return nil
+	}
+
+	return r, nil
+}
+func (s *Site) getDeleteDestination() (*route, error) {
+	r := &route{
+		path:    "/destinations/delete/:hash",
+		methods: []string{"GET"},
+	}
+
+	// actual handler
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+
+		ids := s.idHasher.Decode(ps.ByName("hash"))
+		if len(ids) != 1 {
+			return errors.New("No id found")
+		}
+
+		destinationID := ids[0]
+
+		var count int
+		err := s.db.QueryRow(
+			req.Context(),
+			"SELECT COUNT(*) FROM destinations WHERE account_id = $1 AND id = $2 AND deleted_at IS NULL",
+			accountID,
+			destinationID,
+		).Scan(&count)
+		if err != nil {
+			return err
+		}
+
+		if count != 1 {
+			return errors.New("Destination not found")
+		}
+
+		tx, err := s.db.Begin(req.Context())
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(req.Context())
+
+		_, err = tx.Exec(
+			req.Context(),
+			"DELETE FROM alias_destinations WHERE destination_id = $1",
+			destinationID,
+		)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(
+			req.Context(),
+			"UPDATE destinations SET deleted_at = NOW() WHERE id = $1",
+			destinationID,
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := tx.Commit(req.Context()); err != nil {
+			return err
+		}
+
+		http.Redirect(w, req, "/destinations", http.StatusFound)
 
 		return nil
 	}

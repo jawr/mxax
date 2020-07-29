@@ -29,7 +29,7 @@
           {{range .Domains}}
           <tr>
             <td class="pv3 pr3 bb b--black-20">
-              <a href="/domain/{{.Name}}" class="link navy">{{.Name}}</a>
+              <a href="/domain/manage/{{.Name}}" class="link navy">{{.Name}}</a>
             </td>
             <td class="pv3 pr3 bb b--black-20"><a href="#" class="link navy">{{.Aliases}}</a></td>
             <td class="pv3 pr3 bb b--black-20">
@@ -46,7 +46,7 @@
             </td>
             <td class="pv3 pr3 bb b--black-20">
               <a href="#" class="link navy pr2" title="View analytics"><i class="lni lni-bar-chart"></i></a>
-              <a href="#" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
+              <a href="/domain/delete/{{.Name}}" class="link navy pr2" title="Delete"><i class="lni lni-archive"></i></a>
             </td>
           </tr>
           {{else}}

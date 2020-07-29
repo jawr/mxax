@@ -38,14 +38,17 @@ func (s *Site) setupRoutes() error {
 		s.getPostAddDomain,
 		s.postVerifyDomain,
 		s.getCheckDomain,
+		s.getDeleteDomain,
 		// destinations
 		s.getDestinations,
 		s.getPostCreateDestination,
+		s.getDeleteDestination,
 		// aliases
 		s.getAliases,
 		s.getPostCreateAlias,
 		s.getPostManageAlias,
 		s.getDeleteAliasDestination,
+		s.getDeleteAlias,
 		// log
 		s.getLog,
 		// security

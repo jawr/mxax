@@ -95,6 +95,7 @@ func (s *Server) makeAliasHandler(db *pgx.Conn) (aliasHandlerFn, error) {
 				FROM aliases AS a 
 					JOIN domains AS d ON a.domain_id = d.id 
 				WHERE d.name = $1 
+					AND a.deleted_at IS NULL 
 					AND d.deleted_at IS NULL 
 					AND d.verified_at IS NOT NULL`,
 				domain,

@@ -1,0 +1,80 @@
+{{define "page"}}
+<div class="mw9 center br1 mh3 mv3">
+  <div class="w-100 bb b--near-white pa3 cf">
+    <h3 class="f4 ma0 p0 fl">
+      <i class="lni lni-direction mr2"></i> 
+      Add Destination to {{.Domain.Name}} '{{.Alias.Rule}}'
+    </h3>
+  </div>
+
+
+  <div class="w-100 pa4">
+    <p class="f5 pb3 lh-copy">Select a destination to add to this alias.</p>
+
+    <form method="post" accept-charset="utf-8">
+      <fieldset class="ba b--transparent ph0 mh0">
+
+        <legend class="ph0 mh0 fw6 clip">Domain</legend>
+        <div class="mt3">
+          <label class="db fw4 lh-copy f6" for="domain">Domain</label>
+          <input class="pa2 input-reset ba bg-transparent w-100 measure {{if .Errors.HasError "rule"}}b--red red{{end}}" value="{{.Domain.Name}}" type="text" name="domain" disabled="true" />
+        </div>
+
+        <legend class="ph0 mh0 fw6 clip">Rule</legend>
+        <div class="mt3">
+          <label class="db fw4 lh-copy f6" for="rule">Rule</label>
+          <input class="pa2 input-reset ba bg-transparent w-100 measure {{if .Errors.HasError "rule"}}b--red red{{end}}" value="{{.Alias.Rule}}" type="text" name="rule" disabled="true" />
+        </div>
+
+        <legend class="ph0 mh0 fw6 clip">Destination</legend>
+        <div class="mt3">
+          <label class="db fw4 lh-copy f6" for="domain">Destination</label>
+          <select class="pa2 ba bg-transparent w-100 measure mr2 {{if .Errors.HasError "destination"}}b--red red{{end}}" name="destination">
+            {{range .Destinations}}
+            <option value="{{.ID}}">{{.Address}}</option>
+            {{end}}
+          </select>
+
+          <a href="/destinations/add" class="pa2 bg-light-green dark-green hover-b--dark-green ba b--washed-green no-underline br1">
+            <i class="lni lni-plus"></i>
+          </a>
+        </div>
+
+        {{range .Errors.All}}
+        <p class="red">{{.}}</p>
+        {{end}}
+
+        <div class="mt4">
+          <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Add" />
+        </div>
+    </form>
+  </div>
+
+  <div class="w-100 pa4">
+    <p class="f5 pb3 lh-copy">Existing Destinations</p>
+    <div class="overflow-auto">
+      <table class="f6 w-100 center" cellspacing="0">
+        <thead>
+          <tr>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Address</th>
+            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w2"></th>
+          </tr>
+        </thead>
+        <tbody class="lh-copy">
+          {{range .ExistingDestinations}}
+          <tr>
+            <td class="pv3 pr3 bb b--black-20">{{.Address}}</td>
+            <td class="pv3 pr3 bb b--black-20">
+              <a href="/alias/destination/delete/{{.HID}}" class="link navy" title="Delete">
+              <i class="lni lni-archive"></i>
+            </a>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{end}}
+

@@ -58,7 +58,9 @@ func (s *Site) getDomains() (*route, error) {
 			`
 			SELECT 
 				d.*,
-				COALESCE(COUNT(DISTINCT a.id)) as aliases,
+				COALESCE(COUNT(DISTINCT a.id) FILTER (
+					WHERE a.deleted_at IS NULL
+				)) as aliases,
 				COALESCE(COUNT(DISTINCT r.id) FILTER (
 					WHERE last_verified_at IS NOT NULL 
 					OR last_verified_at > NOW() - INTERVAL '24 hours'
@@ -68,6 +70,7 @@ func (s *Site) getDomains() (*route, error) {
 				LEFT JOIN aliases AS a ON d.id = a.domain_id 
 				LEFT JOIN records AS r ON d.id = r.domain_id
 			WHERE d.account_id = $1
+			AND d.deleted_at IS NULL
 			GROUP BY d.id
 			ORDER BY d.name
 			`,
@@ -308,17 +311,12 @@ func (s *Site) getPostAddDomain() (*route, error) {
 // different templates
 func (s *Site) getDomain() (*route, error) {
 	r := &route{
-		path:    "/domain/:domain",
+		path:    "/domain/manage/:domain",
 		methods: []string{"GET"},
 	}
 
 	// setup templates
 	verifyTmpl, err := s.loadTemplate("templates/pages/verify_domain.html")
-	if err != nil {
-		return r, err
-	}
-
-	tmpl, err := s.loadTemplate("templates/pages/view_domain.html")
 	if err != nil {
 		return r, err
 	}
@@ -330,8 +328,9 @@ func (s *Site) getDomain() (*route, error) {
 
 	// definte template data
 	type data struct {
-		Route  string
-		Domain Domain
+		Route      string
+		Domain     Domain
+		IsComplete bool
 	}
 
 	// actual handler
@@ -365,29 +364,23 @@ func (s *Site) getDomain() (*route, error) {
 		}
 
 		// check if domain status is complete
-		isComplete := len(d.Domain.Records) == 4
-		for _, rr := range d.Domain.Records {
-			if !rr.IsComplete() {
-				isComplete = false
-				break
+		d.IsComplete = len(d.Domain.Records) == 4
+		if d.IsComplete {
+			for _, rr := range d.Domain.Records {
+				if !rr.IsComplete() {
+					d.IsComplete = false
+					break
+				}
 			}
 		}
 
 		// verify domain
-		if d.Domain.VerifiedAt.Time.IsZero() && !isComplete {
+		if d.Domain.VerifiedAt.Time.IsZero() && !d.IsComplete {
 			s.renderTemplate(w, verifyTmpl, r, d)
 			return nil
 		}
 
-		// if incomplete
-		if !isComplete {
-			http.Redirect(w, req, fmt.Sprintf("/domain/%s/check", d.Domain.Name), http.StatusFound)
-			return nil
-		}
-
-		// finally complete
-		s.renderTemplate(w, tmpl, r, d)
-
+		http.Redirect(w, req, fmt.Sprintf("/domain/check/%s", d.Domain.Name), http.StatusFound)
 		return nil
 	}
 
@@ -397,7 +390,7 @@ func (s *Site) getDomain() (*route, error) {
 // check and see if the associated verify code exists
 func (s *Site) postVerifyDomain() (*route, error) {
 	r := &route{
-		path:    "/domain/:domain/verify",
+		path:    "/domain/verify/:domain",
 		methods: []string{"POST"},
 	}
 
@@ -469,7 +462,7 @@ func (s *Site) postVerifyDomain() (*route, error) {
 // check the records associated with a domain exist
 func (s *Site) getCheckDomain() (*route, error) {
 	r := &route{
-		path:    "/domain/:domain/check",
+		path:    "/domain/check/:domain",
 		methods: []string{"GET"},
 	}
 
@@ -541,6 +534,84 @@ func (s *Site) getCheckDomain() (*route, error) {
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
+		return nil
+	}
+
+	return r, nil
+}
+
+func (s *Site) getDeleteDomain() (*route, error) {
+	r := &route{
+		path:    "/domain/delete/:name",
+		methods: []string{"GET"},
+	}
+
+	// actual handler
+	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+
+		var domain account.Domain
+
+		// get domain
+		err := pgxscan.Get(
+			req.Context(),
+			s.db,
+			&domain,
+			`
+			SELECT * 
+			FROM domains 
+			WHERE name = $1 AND account_id = $2
+			AND deleted_at IS NULL
+			`,
+			ps.ByName("name"),
+			accountID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Get Domain")
+		}
+
+		tx, err := s.db.Begin(req.Context())
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(req.Context())
+
+		_, err = tx.Exec(
+			req.Context(),
+			`
+			DELETE FROM alias_destinations WHERE alias_id IN (
+				SELECT id FROM aliases WHERE domain_id = $1
+			)
+			`,
+			domain.ID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Delete")
+		}
+
+		_, err = tx.Exec(
+			req.Context(),
+			"UPDATE aliases SET deleted_at = NOW() WHERE domain_id = $1",
+			domain.ID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Delete")
+		}
+
+		_, err = tx.Exec(
+			req.Context(),
+			"UPDATE domains SET deleted_at = NOW() WHERE id = $1",
+			domain.ID,
+		)
+		if err != nil {
+			return errors.WithMessage(err, "Delete")
+		}
+
+		if err := tx.Commit(req.Context()); err != nil {
+			return err
+		}
+
+		http.Redirect(w, req, "/domains", http.StatusFound)
+
 		return nil
 	}
 

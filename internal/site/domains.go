@@ -1,7 +1,6 @@
 package site
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net/http"
 	"time"
@@ -63,6 +62,7 @@ func (s *Site) getDomains() (*route, error) {
 				)) as aliases,
 				COALESCE(COUNT(DISTINCT r.id) FILTER (
 					WHERE last_verified_at IS NOT NULL 
+					AND deleted_at IS NULL
 					OR last_verified_at > NOW() - INTERVAL '24 hours'
 				)) as records,
 				COALESCE(COUNT(DISTINCT a.id) FILTER (WHERE rule = '.*')) as catch_all
@@ -160,135 +160,16 @@ func (s *Site) getPostAddDomain() (*route, error) {
 		// what other checks do we want to introduce here
 
 		if !d.Errors.Error() {
-			// create a code
-			var verifyCode string
-			var tries int
-			for {
-				if tries > 10 {
-					return errors.New("Too many tries creating a verify code. Please contact support.")
-				}
 
-				n := 11
-				b := make([]byte, n)
-				if _, err := rand.Read(b); err != nil {
-					return err
-				}
-
-				verifyCode = fmt.Sprintf("mxax-%X", b)
-
-				var count int
-				err := s.db.QueryRow(req.Context(), "SELECT COUNT(*) FROM domains WHERE verify_code = $1", verifyCode).Scan(&count)
-				if err != nil {
-					return errors.WithMessage(err, "Select VerifyCode count")
-				}
-
-				if count == 0 {
-					break
-				}
-			}
-
-			// insert, first create a transaction so we keep a clean state on
-			// an error
-			tx, err := s.db.Begin(req.Context())
-			if err != nil {
-				return errors.WithMessage(err, "Insert")
-			}
-			// TODO:
-			// will this context cancel the rollback??
-			defer tx.Rollback(req.Context())
-
-			var id int
-			err = tx.QueryRow(
+			err := account.CreateDomain(
 				req.Context(),
-				`
-			INSERT INTO domains (account_id, name, verify_code, expires_at) 
-				VALUES ($1, $2, $3, $4)
-				RETURNING id
-				`,
-				accountID,
+				s.db,
 				name,
-				verifyCode,
+				accountID,
 				expiresAt,
-			).Scan(&id)
-			if err != nil {
-				return errors.WithMessage(err, "Insert")
-			}
-
-			// create dkim record
-			dkimKey, err := account.NewDkimKey(id)
-			if err != nil {
-				return errors.WithMessage(err, "NewDkimKey")
-			}
-
-			// insert dkim
-			_, err = tx.Exec(
-				req.Context(),
-				"INSERT INTO dkim_keys (domain_id, private_key, public_key) VALUES ($1, $2, $3)",
-				id,
-				dkimKey.PrivateKey,
-				dkimKey.PublicKey,
 			)
 			if err != nil {
-				return errors.WithMessage(err, "Insert DkimKey")
-			}
-
-			// insert dkim record
-			_, err = tx.Exec(
-				req.Context(),
-				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
-				id,
-				"mxax._domainkey",
-				"TXT",
-				dkimKey.String(),
-			)
-			if err != nil {
-				return errors.WithMessage(err, "Insert DkimKey Record")
-			}
-
-			// insert mx
-			_, err = tx.Exec(
-				req.Context(),
-				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
-				id,
-				"@",
-				"MX",
-				"10 smtp.mx.ax.",
-			)
-			if err != nil {
-				return errors.WithMessage(err, "Insert MX Record")
-			}
-
-			// TODO
-			// host a second mx for redundancy
-
-			// insert spf
-			_, err = tx.Exec(
-				req.Context(),
-				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
-				id,
-				"@",
-				"TXT",
-				`"v=spf1 include:spf.mx.ax ~all"`,
-			)
-			if err != nil {
-				return errors.WithMessage(err, "Insert SPF Record")
-			}
-
-			// insert dmarc
-			_, err = tx.Exec(
-				req.Context(),
-				"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
-				id,
-				"_dmarc",
-				"TXT",
-				`"v=DMARC1; p=quarantine"`,
-			)
-			if err != nil {
-				return errors.WithMessage(err, "Insert DkimKey Record")
-			}
-
-			if err := tx.Commit(req.Context()); err != nil {
-				return errors.WithMessage(err, "Commit")
+				return errors.WithMessage(err, "CreateDomain")
 			}
 
 			// redirect success to domains page
@@ -340,23 +221,21 @@ func (s *Site) getDomain() (*route, error) {
 			Route: "domains",
 		}
 
-		err := pgxscan.Get(
+		err := account.GetDomain(
 			req.Context(),
 			s.db,
-			&d.Domain,
-			"SELECT * FROM domains WHERE account_id = $1 AND name = $2",
+			&d.Domain.Domain,
 			accountID,
 			ps.ByName("domain"),
 		)
 		if err != nil {
-			return err
+			return errors.WithMessage(err, "GetDomain")
 		}
 
-		err = pgxscan.Select(
+		err = account.GetRecords(
 			req.Context(),
 			s.db,
 			&d.Domain.Records,
-			"SELECT * FROM records WHERE domain_id = $1 ORDER BY rtype, host, id",
 			d.Domain.ID,
 		)
 		if err != nil {
@@ -421,16 +300,15 @@ func (s *Site) postVerifyDomain() (*route, error) {
 			Errors: newFormErrors(),
 		}
 
-		err := pgxscan.Get(
+		err := account.GetDomain(
 			req.Context(),
 			s.db,
 			&d.Domain,
-			"SELECT * FROM domains WHERE account_id = $1 AND name = $2",
 			accountID,
 			ps.ByName("domain"),
 		)
 		if err != nil {
-			return err
+			return errors.WithMessage(err, "GetDomain")
 		}
 
 		if err := d.Domain.CheckVerifyCode(dnsConfig); err != nil {
@@ -494,23 +372,21 @@ func (s *Site) getCheckDomain() (*route, error) {
 			Errors: newFormErrors(),
 		}
 
-		err := pgxscan.Get(
+		err := account.GetDomain(
 			req.Context(),
 			s.db,
 			&d.Domain,
-			"SELECT * FROM domains WHERE account_id = $1 AND name = $2 AND verified_at IS NOT NULL",
 			accountID,
 			ps.ByName("domain"),
 		)
 		if err != nil {
-			return err
+			return errors.WithMessage(err, "GetDomain")
 		}
 
-		err = pgxscan.Select(
+		err = account.GetRecords(
 			req.Context(),
 			s.db,
 			&d.Records,
-			"SELECT * FROM records WHERE domain_id = $1 ORDER BY rtype, host, id",
 			d.Domain.ID,
 		)
 		if err != nil {
@@ -552,62 +428,25 @@ func (s *Site) getDeleteDomain() (*route, error) {
 		var domain account.Domain
 
 		// get domain
-		err := pgxscan.Get(
+		err := account.GetDomain(
 			req.Context(),
 			s.db,
 			&domain,
-			`
-			SELECT * 
-			FROM domains 
-			WHERE name = $1 AND account_id = $2
-			AND deleted_at IS NULL
-			`,
-			ps.ByName("name"),
+			accountID,
+			ps.ByName("domain"),
+		)
+		if err != nil {
+			return errors.WithMessage(err, "GetDomain")
+		}
+
+		err = account.DeleteDomain(
+			req.Context(),
+			s.db,
+			domain.ID,
 			accountID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Get Domain")
-		}
-
-		tx, err := s.db.Begin(req.Context())
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback(req.Context())
-
-		_, err = tx.Exec(
-			req.Context(),
-			`
-			DELETE FROM alias_destinations WHERE alias_id IN (
-				SELECT id FROM aliases WHERE domain_id = $1
-			)
-			`,
-			domain.ID,
-		)
-		if err != nil {
-			return errors.WithMessage(err, "Delete")
-		}
-
-		_, err = tx.Exec(
-			req.Context(),
-			"UPDATE aliases SET deleted_at = NOW() WHERE domain_id = $1",
-			domain.ID,
-		)
-		if err != nil {
-			return errors.WithMessage(err, "Delete")
-		}
-
-		_, err = tx.Exec(
-			req.Context(),
-			"UPDATE domains SET deleted_at = NOW() WHERE id = $1",
-			domain.ID,
-		)
-		if err != nil {
-			return errors.WithMessage(err, "Delete")
-		}
-
-		if err := tx.Commit(req.Context()); err != nil {
-			return err
+			return errors.WithMessage(err, "DeleteDomain")
 		}
 
 		http.Redirect(w, req, "/domains", http.StatusFound)

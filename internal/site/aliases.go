@@ -55,7 +55,9 @@ func (s *Site) getAliases() (*route, error) {
 				SELECT
 					a.*,
 					dom.name AS domain,
-					COALESCE(STRING_AGG(d.address, ', '), '') AS destinations
+					COALESCE(STRING_AGG(d.address, ', ') FILTER (
+						WHERE d.deleted_at IS NULL
+					), '') AS destinations
 				FROM 
 					aliases AS a
 					JOIN domains AS dom ON a.domain_id = dom.id
@@ -121,26 +123,24 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 		}
 
 		// get domains and destinations
-		err := pgxscan.Select(
+		err := account.GetDomains(
 			req.Context(),
 			s.db,
 			&d.Domains,
-			`SELECT * FROM domains WHERE account_id = $1 AND verified_at IS NOT NULL AND deleted_at IS NULL ORDER BY name`,
 			accountID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Select domains")
+			return errors.WithMessage(err, "GetDomains")
 		}
 
-		err = pgxscan.Select(
+		err = account.GetDestinations(
 			req.Context(),
 			s.db,
 			&d.Destinations,
-			`SELECT * FROM destinations WHERE account_id = $1 AND deleted_at IS NULL ORDER BY address`,
 			accountID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Select destinations")
+			return errors.WithMessage(err, "GetDestinations")
 		}
 
 		if req.Method == "GET" {
@@ -173,79 +173,16 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 			return nil
 		}
 
-		// used for validation
-
-		var count int
-		// validate that domain belongs to this account
-		err = s.db.QueryRow(
+		err = account.CreateAlias(
 			req.Context(),
-			`SELECT COUNT(*) FROM domains WHERE id = $1 AND account_id = $2`,
-			domainID,
-			accountID,
-		).Scan(&count)
-		if err != nil {
-			return errors.WithMessage(err, "Validate domain")
-		}
-
-		if count != 1 {
-			d.Errors.Add("domain", "Invalid domain")
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		// validate that destination belongs to this account
-		err = s.db.QueryRow(
-			req.Context(),
-			`SELECT COUNT(*) FROM destinations WHERE id = $1 AND account_id = $2 AND deleted_at IS NULL`,
-			destinationID,
-			accountID,
-		).Scan(&count)
-		if err != nil {
-			return errors.WithMessage(err, "Validate domain")
-		}
-
-		if count != 1 {
-			d.Errors.Add("domain", "Invalid domain")
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		// insert alias
-		var aliasID int
-		err = s.db.QueryRow(
-			req.Context(),
-			`
-			WITH e AS (
-				INSERT INTO aliases (domain_id, rule) 
-				VALUES ($1, $2) 
-				ON CONFLICT (domain_id, rule) DO UPDATE SET deleted_at = NULL RETURNING id
-			)
-			SELECT * FROM e UNION SELECT id FROM aliases WHERE domain_id = $1 AND rule = $2
-			`,
-			domainID,
+			s.db,
 			rule,
-		).Scan(&aliasID)
-		if err != nil {
-			log.Printf("Error inserting alias (%d,%s,%t): %s", domainID, rule, false, err)
-			d.Errors.Add(
-				"",
-				fmt.Sprintf(
-					"Unable to create alais. Please contact support. (%s)",
-					time.Now(),
-				),
-			)
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		_, err = s.db.Exec(
-			req.Context(),
-			"INSERT INTO alias_destinations (alias_id, destination_id) VALUES ($1, $2)",
-			aliasID,
+			accountID,
+			domainID,
 			destinationID,
 		)
 		if err != nil {
-			log.Printf("Error inserting alias_destination (%d,%d): %s", aliasID, destinationID, err)
+			log.Printf("Error creating alias: %s", err)
 			d.Errors.Add(
 				"",
 				fmt.Sprintf(
@@ -310,57 +247,57 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		aliasID := ids[0]
 
 		// get alias
-		err = pgxscan.Get(
+		err := account.GetAlias(
 			req.Context(),
 			s.db,
 			&d.Alias,
-			`
-			SELECT a.* 
-			FROM aliases AS a 
-				JOIN domains AS d ON a.domain_id = d.id 
-			WHERE a.id = $1 AND d.account_id = $2 AND d.deleted_at IS NULL
-			`,
-			aliasID,
 			accountID,
+			aliasID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Get Alias")
+			return errors.WithMessage(err, "GetAlias")
 		}
 
 		// get domain
-		err = pgxscan.Get(
+		err = account.GetDomainByID(
 			req.Context(),
 			s.db,
 			&d.Domain,
-			`
-			SELECT * 
-			FROM domains
-			WHERE id = $1
-			`,
+			accountID,
 			d.Alias.DomainID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Get Domain")
+			return errors.WithMessage(err, "GetDomainByID")
 		}
 
 		// select destinations
 		err = pgxscan.Select(
 			req.Context(),
 			s.db,
-			&d.Destinations,
+			&d.ExistingDestinations,
 			`
 			SELECT * 
-			FROM destinations 
-			WHERE account_id = $1 AND id NOT IN (
-				SELECT destination_id FROM alias_destinations WHERE alias_id = $2		
-			) AND deleted_at IS NULL ORDER BY address`,
+			FROM destinations AS d 
+			WHERE 
+				account_id = $1 
+				AND id NOT IN (
+					SELECT destination_id 
+					FROM alias_destinations
+					WHERE 
+						alias_id = $2
+						AND deleted_at IS NULL
+				)
+				AND deleted_at IS NULL
+			ORDER BY address
+			`,
 			accountID,
-			aliasID,
+			d.Alias.ID,
 		)
 		if err != nil {
 			return errors.WithMessage(err, "Select destinations")
 		}
 
+		// get existing destinations
 		err = pgxscan.Select(
 			req.Context(),
 			s.db,
@@ -369,7 +306,11 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			SELECT d.* 
 			FROM destinations AS d 
 				JOIN alias_destinations AS ad on ad.destination_id = d.id
-			WHERE d.account_id = $1 AND ad.alias_id = $2 AND d.deleted_at IS NULL
+			WHERE 
+				d.account_id = $1 
+				AND ad.alias_id = $2 
+				AND d.deleted_at IS NULL
+				AND ad.deleted_at IS NULL
 			ORDER BY d.address
 			`,
 			accountID,
@@ -400,27 +341,22 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		}
 
 		// validate that destination belongs to this account
-		var count int
-		err = s.db.QueryRow(
+		var destination account.Destination
+		err = account.GetDestinationByID(
 			req.Context(),
-			`SELECT COUNT(*) FROM destinations WHERE id = $1 AND account_id = $2 AND delted_at IS NULL`,
-			destinationID,
+			s.db,
+			&destination,
 			accountID,
-		).Scan(&count)
+			destinationID,
+		)
 		if err != nil {
 			return errors.WithMessage(err, "Validate Destination")
 		}
 
-		if count != 1 {
-			d.Errors.Add("domain", "Invalid Destination")
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		_, err = s.db.Exec(
+		err = account.CreateAliasDestination(
 			req.Context(),
-			"INSERT INTO alias_destinations (alias_id, destination_id) VALUES ($1, $2)",
-			aliasID,
+			s.db,
+			d.Alias.ID,
 			destinationID,
 		)
 		if err != nil {
@@ -465,43 +401,36 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 		var destination account.Destination
 
 		// get alias
-		err := pgxscan.Get(
+		err := account.GetAlias(
 			req.Context(),
 			s.db,
 			&alias,
-			`
-			SELECT a.* 
-			FROM aliases AS a 
-				JOIN domains AS d ON a.domain_id = d.id 
-			WHERE a.id = $1 AND d.account_id = $2 AND a.deleted_at IS NULL
-			`,
-			aliasID,
 			accountID,
+			aliasID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Get Alias")
+			return errors.WithMessage(err, "GetAlias")
 		}
 
 		// get destination
-		err = pgxscan.Get(
+		err = account.GetDestinationByID(
 			req.Context(),
 			s.db,
 			&destination,
-			`
-			SELECT * 
-			FROM destinations
-			WHERE id = $1 AND account_id = $2 AND deleted_at IS NULL
-			`,
-			destinationID,
 			accountID,
+			destinationID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Get Alias")
+			return errors.WithMessage(err, "GetDestinationByID")
 		}
 
 		_, err = s.db.Exec(
 			req.Context(),
-			"DELETE FROM alias_destinations WHERE alias_id = $1 AND destination_id = $2",
+			`
+			UPDATE alias_destinations 
+			SET deleted_at = NOW()
+			WHERE alias_id = $1 AND destination_id = $2
+			`,
 			aliasID,
 			destinationID,
 		)
@@ -541,21 +470,15 @@ func (s *Site) getDeleteAlias() (*route, error) {
 		var alias account.Alias
 
 		// get alias
-		err := pgxscan.Get(
+		err := account.GetAlias(
 			req.Context(),
 			s.db,
 			&alias,
-			`
-			SELECT a.* 
-			FROM aliases AS a 
-				JOIN domains AS d ON a.domain_id = d.id 
-			WHERE a.id = $1 AND d.account_id = $2
-			`,
-			aliasID,
 			accountID,
+			aliasID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Get Alias")
+			return errors.WithMessage(err, "GetAlias")
 		}
 
 		tx, err := s.db.Begin(req.Context())
@@ -566,7 +489,11 @@ func (s *Site) getDeleteAlias() (*route, error) {
 
 		_, err = tx.Exec(
 			req.Context(),
-			"DELETE FROM alias_destinations WHERE alias_id = $1",
+			`
+			UPDATE alias_destinations 
+			SET deleted_at = NOW() 
+			WHERE alias_id = $1
+			`,
 			alias.ID,
 		)
 		if err != nil {

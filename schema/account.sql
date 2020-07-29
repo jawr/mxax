@@ -26,8 +26,10 @@ CREATE TABLE records (
 	host TEXT NOT NULL,
 	rtype TEXT NOT NULL,
 	value TEXT NOT NULL,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMP WITH TIME ZONE,
+	deleted_at TIMESTAMP WITH TIME ZONE,
 	last_verified_at TIMESTAMP WITH TIME ZONE,
-	UNIQUE(domain_id, host, rtype, value)
 );
 
 CREATE TABLE aliases (
@@ -67,8 +69,6 @@ CREATE TABLE dkim_keys (
 	updated_at TIMESTAMP WITH TIME ZONE,
 	deleted_at TIMESTAMP WITH TIME ZONE
 );
-
-CREATE UNIQUE INDEX aliases_domain_id_catch_all_idx ON aliases (domain_id) WHERE catch_all = true;
 CREATE UNIQUE INDEX dkim_keys_domain_id_deleted_at_idx ON dkim_keys (domain_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE return_paths (

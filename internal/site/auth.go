@@ -132,7 +132,9 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 			password := req.FormValue("password")
 
 			if username == "trains@mx.ax" && password == "iliketrains" {
-				if err := s.setCookie(w, req, 1); err != nil {
+				accountID := 1
+
+				if err := s.setCookie(w, req, accountID); err != nil {
 					s.handleError(w, r, err)
 					return
 				}
@@ -141,6 +143,17 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 				allNext, ok := req.URL.Query()["next"]
 				if ok && len(allNext) > 0 {
 					next = allNext[0]
+				}
+
+				// update last login
+				_, err := s.db.Exec(
+					req.Context(),
+					"UPDATE accounts SET last_login_at = NOW() WHERE id = $1",
+					accountID,
+				)
+				if err != nil {
+					s.handleError(w, r, err)
+					return
 				}
 
 				http.Redirect(w, req, next, http.StatusFound)

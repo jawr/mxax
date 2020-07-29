@@ -22,3 +22,12 @@ type Account struct {
 	MetaData
 	LastLoginAt pgtype.Timestamp
 }
+
+type Security struct {
+	ID int
+
+	AccountID int
+	Password  []byte
+
+	MetaData
+}

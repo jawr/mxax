@@ -97,7 +97,9 @@ func (s *Server) makeAliasHandler(db *pgx.Conn) (aliasHandlerFn, error) {
 				WHERE d.name = $1 
 					AND a.deleted_at IS NULL 
 					AND d.deleted_at IS NULL 
-					AND d.verified_at IS NOT NULL`,
+					AND d.verified_at IS NOT NULL
+				ORDER BY LENGTH(a.rule) DESC
+				`,
 				domain,
 			)
 			if err != nil {

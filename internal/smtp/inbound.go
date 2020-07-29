@@ -111,36 +111,41 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 	return nil
 }
 
-func (s *InboundSession) rcpt(to string) (int, int, error) {
+func (s *InboundSession) Rcpt(to string) error {
+	// if no domain id then just drop
 	domainID, err := s.server.domainHandler(to)
 	if err != nil {
 		log.Printf("%s - Rcpt - To: '%s' - domainHandler error: %s", s, to, err)
-		return domainID, 0, errors.Errorf("unknown recipient (%s)", s)
+		return errors.Errorf("unknown recipient (%s)", s)
 	}
 
-	aliasID, err := s.server.aliasHandler(to)
+	// check for return path first as we might
+	// have some sort of catch all
+	oID, returnPath, err := s.server.returnPathHandler(to)
 	if err != nil {
-		log.Printf("%s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
-		return domainID, aliasID, errors.Errorf("unknown recipient (%s)", s)
+		log.Printf("%s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
 	}
 
-	return domainID, aliasID, nil
-}
+	if len(returnPath) > 0 {
+		log.Printf("%s - Rcpt - To: %s Found return path: %s reset id to %s", s, to, returnPath, oID)
 
-func (s *InboundSession) Rcpt(to string) error {
+		// overwrite to with returnPath and set returnPath flag
+		s.Via = to
+		to = returnPath
+		s.returnPath = true
+		s.ID = oID
 
-	domainID, aliasID, err := s.rcpt(to)
-	if err != nil {
+	} else {
 
-		oID, returnPath, err := s.server.returnPathHandler(to)
+		// otherwise check alias
+		aliasID, err := s.server.aliasHandler(to)
 		if err != nil {
-			log.Printf("%s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
-		}
+			log.Printf("%s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
 
-		if err != nil || len(returnPath) == 0 {
 			// inc reject metric
 			s.server.publishLogEntry(logger.Entry{
 				DomainID:  domainID,
+				AliasID:   aliasID,
 				FromEmail: s.From,
 				ViaEmail:  to,
 				Etype:     logger.EntryTypeReject,
@@ -151,20 +156,13 @@ func (s *InboundSession) Rcpt(to string) error {
 			}
 		}
 
-		log.Printf("%s - Rcpt - To: %s Found return path: %s reset id to %s", s, to, returnPath, oID)
-
-		// overwrite to with returnPath and set returnPath flag
-		s.Via = to
-		to = returnPath
-		s.returnPath = true
-		s.ID = oID
+		s.AliasID = aliasID
 	}
 
 	s.DomainID = domainID
-	s.AliasID = aliasID
 	s.To = to
 
-	log.Printf("%s - Mail - To: '%s' - AliasID: %d", s, to, aliasID)
+	log.Printf("%s - Mail - To: '%s' - AliasID: %d", s, to, s.AliasID)
 
 	return nil
 }

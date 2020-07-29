@@ -29,9 +29,15 @@
             <td class="pv3 pr3 bb b--black-20">{{.FromEmail}}</td>
             <td class="pv3 pr3 bb b--black-20">{{.ViaEmail}}</td>
             <td class="pv3 pr3 bb b--black-20">{{.ToEmail}}</td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" title="{{.ID}}">{{.Time}}</a></td>
+            <td class="pv3 pr3 bb b--black-20"><a href="#" title="{{.ID}}" class="link navy">{{.DateTime}}</a></td>
             <td class="pv3 pr3 bb b--black-20">{{template "log_entry_status" .}}</td>
-            <td class="pv3 pr3 bb b--black-20"></td>
+            <td class="pv3 pr3 bb b--black-20">
+              {{if eq .Etype 2}}
+              <a class="link navy" title="Details" href="/log/detail/{{.ID}}/{{.EncodeTime}}">
+                <i class="lni lni-search"></i>
+              </a>
+              {{end}}
+            </td>
           </tr>
           {{end}}
         </tbody>

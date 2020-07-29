@@ -10,21 +10,26 @@
           <div class="w-100 pa4">
             <dl class="lh-title pa4 mt0">
               <dt class="f6 b">From</dt>
-              <dd class="ml0">origin@foo.com</dd>
+              <dd class="ml0">{{.Entry.FromEmail}}</dd>
+              <dt class="f6 b mt2">Via</dt>
+              <dd class="ml0">{{.Entry.ViaEmail}}</dd>
               <dt class="f6 b mt2">To</dt>
-              <dd class="ml0">jess@pageup.me</dd>
-              <dt class="f6 b mt2">Destination</dt>
-              <dd class="ml0">jess@lawrence.pm</dd>
-              <dt class="f6 b mt2">Arrived At</dt>
-              <dd class="ml0">14:29 01/02/20</dd>
-              <dt class="f6 b mt2">Forwarded At</dt>
-              <dd class="ml0">14:32 01/02/20</dd>
+              <dd class="ml0">{{.Entry.ToEmail}}</dd>
+              <dt class="f6 b mt2">At</dt>
+              <dd class="ml0">{{.Entry.DateTime}}</dd>
             </dl>
 
-            <h4 class="f6">Bounce Message</h4>
+            <h4 class="f6">Bounce</h4>
             <div class="br1 b--light-green bg-near-white">
               <p class="pre overflow-auto">
-              Bounce  message
+              {{.Entry.Status}}
+              </p>
+            </div>
+
+            <h4 class="f6">Message</h4>
+            <div class="br1 b--light-green bg-near-white">
+              <p class="pre overflow-auto">
+              {{.Entry.GetMessage}}
               </p>
             </div>
 

@@ -1,6 +1,7 @@
 package site
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -130,11 +131,12 @@ func (s *Site) getPostCreateDestination() (*route, error) {
 
 			_, err := s.db.Exec(
 				req.Context(),
-				"INSERT INTO destinations (account_id, address) VALUES ($1, $2)",
+				"INSERT INTO destinations (account_id, address) VALUES ($1, $2) ON CONFLICT (account_id,address) DO UPDATE SET deleted_at = NULL",
 				accountID,
 				strings.ToLower(address),
 			)
 			if err != nil {
+				log.Printf("Insert err: %s", err)
 				d.Errors.Add("address", "Address already exists")
 
 			} else {

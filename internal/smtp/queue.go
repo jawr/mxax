@@ -87,25 +87,29 @@ func (s *Server) handleEmails(emailSubscriber <-chan amqp.Delivery) error {
 
 		if len(email.Bounce) > 0 {
 			s.publishLogEntry(logger.Entry{
-				ID:        email.ID,
-				DomainID:  email.DomainID,
-				FromEmail: email.From,
-				ViaEmail:  email.Via,
-				ToEmail:   email.To,
-				Etype:     logger.EntryTypeBounce,
-				Status:    email.Bounce,
-				Message:   msg.Body,
+				ID:            email.ID,
+				DomainID:      email.DomainID,
+				AliasID:       email.AliasID,
+				DestinationID: email.DestinationID,
+				FromEmail:     email.From,
+				ViaEmail:      email.Via,
+				ToEmail:       email.To,
+				Etype:         logger.EntryTypeBounce,
+				Status:        email.Bounce,
+				Message:       email.Message,
 			})
 
 		} else {
 			log.Printf("%s - Sent (%s -> %s -> %s) [%s]", email.ID, email.From, email.Via, email.To, time.Since(start))
 			s.publishLogEntry(logger.Entry{
-				ID:        email.ID,
-				DomainID:  email.DomainID,
-				FromEmail: email.From,
-				ViaEmail:  email.Via,
-				ToEmail:   email.To,
-				Etype:     logger.EntryTypeSend,
+				ID:            email.ID,
+				DomainID:      email.DomainID,
+				AliasID:       email.AliasID,
+				DestinationID: email.DestinationID,
+				FromEmail:     email.From,
+				ViaEmail:      email.Via,
+				ToEmail:       email.To,
+				Etype:         logger.EntryTypeSend,
 			})
 		}
 

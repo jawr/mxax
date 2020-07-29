@@ -81,6 +81,8 @@ func run() error {
 						time,
 						id,
 						domain_id,
+						alias_id,
+						destination_id,
 						from_email,
 						via_email,
 						to_email,
@@ -88,10 +90,12 @@ func run() error {
 						status,
 						message
 					)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 				e.Time,
 				e.ID,
 				e.DomainID,
+				e.AliasID,
+				e.DestinationID,
 				e.FromEmail,
 				e.ViaEmail,
 				e.ToEmail,

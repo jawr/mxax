@@ -25,6 +25,13 @@ type accountHandle func(accountID int, w http.ResponseWriter, r *http.Request, p
 func (s *Site) auth(r *route) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 
+		next := req.URL.Path
+		if next == "/" || next == "/login" || next == "/logout" {
+			next = ""
+		} else {
+			next = "?next=" + next
+		}
+
 		if os.Getenv("MXAX_DEV") == "1" {
 			if err := r.h(1, w, req, ps); err != nil {
 				s.handleError(w, r, err)
@@ -35,7 +42,7 @@ func (s *Site) auth(r *route) httprouter.Handle {
 		c, err := req.Cookie("mxax_session_token")
 		if err != nil {
 			if err == http.ErrNoCookie {
-				http.Redirect(w, req, "/login", http.StatusFound)
+				http.Redirect(w, req, "/login"+next, http.StatusFound)
 				return
 			}
 
@@ -94,7 +101,7 @@ func (s *Site) auth(r *route) httprouter.Handle {
 			return
 		}
 
-		http.Redirect(w, req, "/login", http.StatusFound)
+		http.Redirect(w, req, "/login"+next, http.StatusFound)
 	}
 }
 
@@ -130,7 +137,13 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 					return
 				}
 
-				http.Redirect(w, req, "/", http.StatusFound)
+				next := "/"
+				allNext, ok := req.URL.Query()["next"]
+				if ok && len(allNext) > 0 {
+					next = allNext[0]
+				}
+
+				http.Redirect(w, req, next, http.StatusFound)
 				return
 			}
 

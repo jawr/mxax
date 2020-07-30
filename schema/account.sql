@@ -1,8 +1,13 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- create triggers for update_at!
 CREATE TABLE accounts (
 	id SERIAL PRIMARY KEY,
 	username TEXT UNIQUE NOT NULL,
 	password BYTEA NOT NULL,
+	verify_code UUID NOT NULL DEFAULT gen_random_uuid(),
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+	verified_at TIMESTAMP WITH TIME ZONE,
 	updated_at TIMESTAMP WITH TIME ZONE,
 	deleted_at TIMESTAMP WITH TIME ZONE,
 	last_login_at TIMESTAMP WITH TIME ZONE

@@ -1,4 +1,4 @@
-{{define "login"}}
+{{define "register"}}
 <!DOCTYPE html>
 <html lang="en">
   <title>{{block "title" .}}MX{{end}}</title>
@@ -12,34 +12,34 @@
   <body class="sans-serif dark-gray">
 
     <div class="flex justify-center items-center w-100 vh-100 sticky bg-light-green">
-
       <main class="mw7 measure pa4 black-80 bg-white br1">
         <form method="post" >
           <fieldset class="ba b--transparent ph0 mh0">
-            <legend class="f4 fw6 ph0 mh0">Login</legend>
+            <legend class="f4 fw6 ph0 mh0">Register</legend>
 
             <div class="mt3">
-              <label class="db fw6 lh-copy f6" for="email-address">Username</label>
+              <label class="db fw6 lh-copy f6" for="email-address">Email</label>
               <input class="pa2 input-reset ba bg-transparent hover-bg-washed-green w-100" type="email" name="username" />
             </div>
             <div class="mv3">
               <label class="db fw6 lh-copy f6" for="password">Password</label>
               <input class="b pa2 input-reset ba bg-transparent hover-bg-washed-green w-100" type="password" name="password" />
             </div>
-            <!--
-            <label class="pa0 ma0 lh-copy f6 pointer"><input type="checkbox"> Remember me</label>
-            -->
+            <div class="mv3">
+              <label class="db fw6 lh-copy f6" for="confirm-password">Confirm Password</label>
+              <input class="b pa2 input-reset ba bg-transparent hover-bg-washed-green w-100" type="password" name="confirm-password" />
+            </div>
           </fieldset>
 
-        {{range .Errors.All}}
-        <p class="red">{{.}}</p>
-        {{end}}
+          {{range .Errors.All}}
+          <p class="red">{{.}}</p>
+          {{end}}
 
-            <input class="b ph3 pv2 input-reset ba b--black bg-transparent grow pointer f6 dib" type="submit" value="Login">
+          <input class="b ph3 pv2 input-reset ba b--black bg-transparent grow pointer f6 dib" type="submit" value="Register">
 
-          <div class="lh-copy mt3">
-            <a href="/register" class="f6 link dim black db">Register</a>
-          </div>
+            <div class="lh-copy mt3">
+            <a href="/login" class="f6 link dim black db">Login</a>
+            </div>
         </form>
       </main>
     </div>
@@ -47,4 +47,3 @@
   </body>
 </html>
 {{end}}
-

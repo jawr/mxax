@@ -125,3 +125,15 @@ func (s *Site) handleError(w http.ResponseWriter, r *route, err error) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
+
+func (s *Site) handleErrorPlain(w http.ResponseWriter, r *route, err error) {
+	id, uerr := uuid.NewRandom()
+	if uerr != nil {
+		log.Printf("%v %s ERROR: %s (%s)", r.methods, r.path, uerr, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("%v %s ERROR: %s (%s)", r.methods, r.path, err, id)
+	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+}

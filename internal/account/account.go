@@ -3,6 +3,7 @@ package account
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgtype"
 )
 
@@ -18,6 +19,9 @@ type Account struct {
 
 	Username string
 	Password []byte
+
+	VerifyCode uuid.UUID
+	VerifiedAt time.Time
 
 	MetaData
 	LastLoginAt pgtype.Timestamp

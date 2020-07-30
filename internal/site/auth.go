@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -169,7 +172,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 			}
 
 			if err := s.setCookie(w, req, accountID); err != nil {
-				s.handleError(w, r, err)
+				s.handleErrorPlain(w, r, err)
 				return
 			}
 
@@ -186,7 +189,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 				accountID,
 			)
 			if err != nil {
-				s.handleError(w, r, err)
+				s.handleErrorPlain(w, r, err)
 				return
 			}
 
@@ -197,7 +200,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 	FAIL:
 
 		if err := tmpl.ExecuteTemplate(w, "login", d); err != nil {
-			s.handleError(w, r, err)
+			s.handleErrorPlain(w, r, err)
 		}
 	}, nil
 }
@@ -267,4 +270,135 @@ func (s *Site) setCookie(w http.ResponseWriter, r *http.Request, accountID int) 
 	})
 
 	return nil
+}
+
+func (s *Site) getPostRegister() (httprouter.Handle, error) {
+	r := &route{
+		path:    "/register",
+		methods: []string{"GET", "POST"},
+	}
+
+	type data struct {
+		Route  string
+		Errors FormErrors
+	}
+
+	tmpl, err := template.ParseFiles("templates/register.html")
+	if err != nil {
+		return nil, err
+	}
+
+	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+		d := data{
+			Route:  "register",
+			Errors: newFormErrors(),
+		}
+
+		if req.Method == "POST" {
+			username := req.FormValue("username")
+			password := req.FormValue("password")
+			confirmPassword := req.FormValue("confirm-password")
+
+			if !isEmailValid(username) {
+				d.Errors.Add("email", "Address is not valid")
+				goto FAIL
+			}
+
+			var count int
+			err := s.adminDB.QueryRow(
+				req.Context(),
+				"SELECT COUNT(*) FROM accounts WHERE username = $1",
+				username,
+			).Scan(&count)
+			if err != nil {
+				s.handleErrorPlain(w, r, err)
+				return
+			}
+
+			if count > 0 {
+				d.Errors.Add("email", "Address has already registered.")
+				goto FAIL
+			}
+
+			if password != confirmPassword {
+				d.Errors.Add("password", "")
+				d.Errors.Add("confirm-password", "Does not match")
+				goto FAIL
+			}
+
+			hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			if err != nil {
+				s.handleErrorPlain(w, r, err)
+				return
+			}
+
+			_, err = s.adminDB.Exec(
+				req.Context(),
+				`
+				INSERT INTO accounts (username,password)
+					VALUES ($1,$2)
+				`,
+				username,
+				hashed,
+			)
+			if err != nil {
+				s.handleErrorPlain(w, r, err)
+				return
+			}
+
+			http.Redirect(w, req, "/thankyou", http.StatusFound)
+			return
+		}
+
+	FAIL:
+
+		if err := tmpl.ExecuteTemplate(w, "register", d); err != nil {
+			s.handleErrorPlain(w, r, err)
+		}
+	}, nil
+}
+
+func (s *Site) getThankyou() (httprouter.Handle, error) {
+	r := &route{
+		path:    "/thankyou",
+		methods: []string{"GET"},
+	}
+
+	type data struct {
+		Route string
+	}
+
+	tmpl, err := template.ParseFiles("templates/thankyou.html")
+	if err != nil {
+		return nil, err
+	}
+
+	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+		d := data{
+			Route: "register",
+		}
+
+		if err := tmpl.ExecuteTemplate(w, "register", d); err != nil {
+			s.handleErrorPlain(w, r, err)
+		}
+	}, nil
+}
+
+var emailRegex = regexp.MustCompile(
+	"^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+)
+
+func isEmailValid(e string) bool {
+	if len(e) < 3 && len(e) > 254 {
+		return false
+	}
+	if !emailRegex.MatchString(e) {
+		return false
+	}
+	parts := strings.Split(e, "@")
+	mx, err := net.LookupMX(parts[1])
+	if err != nil || len(mx) == 0 {
+		return false
+	}
+	return true
 }

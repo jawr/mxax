@@ -20,7 +20,7 @@ type Destination struct {
 	MetaData
 }
 
-func GetDestinations(ctx context.Context, db *pgx.Conn, destinations *[]Destination, accountID int) error {
+func GetDestinations(ctx context.Context, db pgx.Tx, destinations []Destination) error {
 	return pgxscan.Select(
 		ctx,
 		db,
@@ -28,16 +28,13 @@ func GetDestinations(ctx context.Context, db *pgx.Conn, destinations *[]Destinat
 		`
 			SELECT * 
 			FROM destinations 
-			WHERE 
-				account_id = $1 
-				AND deleted_at IS NULL 
+			WHERE deleted_at IS NULL
 			ORDER BY address
 			`,
-		accountID,
 	)
 }
 
-func GetDestination(ctx context.Context, db *pgx.Conn, destination *Destination, accountID int, name string) error {
+func GetDestination(ctx context.Context, db pgx.Tx, destination *Destination, name string) error {
 	return pgxscan.Get(
 		ctx,
 		db,
@@ -46,16 +43,14 @@ func GetDestination(ctx context.Context, db *pgx.Conn, destination *Destination,
 			SELECT * 
 			FROM destinations 
 			WHERE 
-				account_id = $1 
-				AND name = $2
+				name = $1
 				AND deleted_at IS NULL
 			`,
-		accountID,
 		name,
 	)
 }
 
-func GetDestinationByID(ctx context.Context, db *pgx.Conn, destination *Destination, accountID, destinationID int) error {
+func GetDestinationByID(ctx context.Context, db pgx.Tx, destination *Destination, destinationID int) error {
 	return pgxscan.Get(
 		ctx,
 		db,
@@ -64,11 +59,9 @@ func GetDestinationByID(ctx context.Context, db *pgx.Conn, destination *Destinat
 			SELECT * 
 			FROM destinations 
 			WHERE 
-				account_id = $1 
-				AND id = $2
+				id = $1
 				AND deleted_at IS NULL
 			`,
-		accountID,
 		destinationID,
 	)
 }

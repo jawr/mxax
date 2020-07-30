@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
+	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/julienschmidt/httprouter"
 	"github.com/miekg/dns"
@@ -44,7 +45,7 @@ func (s *Site) getDomains() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "domains",
@@ -52,7 +53,7 @@ func (s *Site) getDomains() (*route, error) {
 
 		if err := pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Domains,
 			`
 			SELECT 
@@ -69,12 +70,11 @@ func (s *Site) getDomains() (*route, error) {
 			FROM domains AS d 
 				LEFT JOIN aliases AS a ON d.id = a.domain_id 
 				LEFT JOIN records AS r ON d.id = r.domain_id
-			WHERE d.account_id = $1
-			AND d.deleted_at IS NULL
+			WHERE 
+				d.deleted_at IS NULL
 			GROUP BY d.id
 			ORDER BY d.name
 			`,
-			accountID,
 		); err != nil {
 			return err
 		}
@@ -129,7 +129,7 @@ func (s *Site) getPostAddDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "domains",
@@ -163,9 +163,8 @@ func (s *Site) getPostAddDomain() (*route, error) {
 
 			err := account.CreateDomain(
 				req.Context(),
-				s.db,
+				tx,
 				name,
-				accountID,
 				expiresAt,
 			)
 			if err != nil {
@@ -173,7 +172,7 @@ func (s *Site) getPostAddDomain() (*route, error) {
 			}
 
 			// redirect success to domains page
-			http.Redirect(w, req, "/domain/"+name, http.StatusFound)
+			http.Redirect(w, req, "/domain/manage/"+name, http.StatusFound)
 
 			return nil
 		}
@@ -215,7 +214,7 @@ func (s *Site) getDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "domains",
@@ -223,9 +222,8 @@ func (s *Site) getDomain() (*route, error) {
 
 		err := account.GetDomain(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Domain.Domain,
-			accountID,
 			ps.ByName("domain"),
 		)
 		if err != nil {
@@ -234,7 +232,7 @@ func (s *Site) getDomain() (*route, error) {
 
 		err = account.GetRecords(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Domain.Records,
 			d.Domain.ID,
 		)
@@ -293,7 +291,7 @@ func (s *Site) postVerifyDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "domains",
@@ -302,9 +300,8 @@ func (s *Site) postVerifyDomain() (*route, error) {
 
 		err := account.GetDomain(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Domain,
-			accountID,
 			ps.ByName("domain"),
 		)
 		if err != nil {
@@ -320,7 +317,7 @@ func (s *Site) postVerifyDomain() (*route, error) {
 			return nil
 		}
 
-		_, err = s.db.Exec(
+		_, err = tx.Exec(
 			req.Context(),
 			"UPDATE domains SET verified_at = NOW() WHERE id = $1",
 			d.Domain.ID,
@@ -365,7 +362,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "domains",
@@ -374,9 +371,8 @@ func (s *Site) getCheckDomain() (*route, error) {
 
 		err := account.GetDomain(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Domain,
-			accountID,
 			ps.ByName("domain"),
 		)
 		if err != nil {
@@ -385,7 +381,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 
 		err = account.GetRecords(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Records,
 			d.Domain.ID,
 		)
@@ -399,7 +395,7 @@ func (s *Site) getCheckDomain() (*route, error) {
 				continue
 			}
 
-			_, err = s.db.Exec(
+			_, err = tx.Exec(
 				req.Context(),
 				"UPDATE records SET last_verified_at = NOW() WHERE id = $1",
 				rr.ID,
@@ -418,21 +414,20 @@ func (s *Site) getCheckDomain() (*route, error) {
 
 func (s *Site) getDeleteDomain() (*route, error) {
 	r := &route{
-		path:    "/domain/delete/:name",
+		path:    "/domain/delete/:domain",
 		methods: []string{"GET"},
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		var domain account.Domain
 
 		// get domain
 		err := account.GetDomain(
 			req.Context(),
-			s.db,
+			tx,
 			&domain,
-			accountID,
 			ps.ByName("domain"),
 		)
 		if err != nil {
@@ -441,9 +436,8 @@ func (s *Site) getDeleteDomain() (*route, error) {
 
 		err = account.DeleteDomain(
 			req.Context(),
-			s.db,
+			tx,
 			domain.ID,
-			accountID,
 		)
 		if err != nil {
 			return errors.WithMessage(err, "DeleteDomain")

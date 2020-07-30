@@ -14,7 +14,8 @@ import (
 type DkimKey struct {
 	ID int
 
-	DomainID int
+	AccountID int
+	DomainID  int
 
 	PrivateKey []byte
 	PublicKey  []byte

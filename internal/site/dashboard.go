@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/georgysavva/scany/pgxscan"
+	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
 )
 
 func (s *Site) getDashboard() (*route, error) {
@@ -31,7 +33,7 @@ func (s *Site) getDashboard() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "dashboard",
@@ -39,7 +41,7 @@ func (s *Site) getDashboard() (*route, error) {
 
 		err := pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Labels,
 			`
 			SELECT to_char(date_trunc('hour', i), 'HH24:00 DD/MM')  FROM 
@@ -48,16 +50,15 @@ func (s *Site) getDashboard() (*route, error) {
 					NOW(),
 					INTERVAL '1 HOUR'
 			) AS t(i)
-
 			`,
 		)
 		if err != nil {
-			return err
+			return errors.WithMessage(err, "Select Labels")
 		}
 
 		err = pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.InboundSend,
 			`
 			WITH series AS (
@@ -76,9 +77,8 @@ func (s *Site) getDashboard() (*route, error) {
 				FROM logs AS l
 					JOIN domains AS d ON l.domain_id = d.id
 				WHERE
-					d.account_id = $1
-					AND time > NOW() - INTERVAL '24 HOURS'
-					AND l.etype = $2
+					time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $1
 				GROUP BY 1
 				ORDER BY 1
 			)
@@ -91,16 +91,15 @@ func (s *Site) getDashboard() (*route, error) {
 			GROUP BY series.hour
 			ORDER BY series.hour
 			`,
-			accountID,
 			logger.EntryTypeSend,
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Select EntryTypeSend")
 		}
 
 		err = pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.InboundBounce,
 			`
 			WITH series AS (
@@ -119,9 +118,8 @@ func (s *Site) getDashboard() (*route, error) {
 				FROM logs AS l
 					JOIN domains AS d ON l.domain_id = d.id
 				WHERE
-					d.account_id = $1
-					AND time > NOW() - INTERVAL '24 HOURS'
-					AND l.etype = $2
+					time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $1
 				GROUP BY 1
 				ORDER BY 1
 			)
@@ -134,16 +132,15 @@ func (s *Site) getDashboard() (*route, error) {
 			GROUP BY series.hour
 			ORDER BY series.hour
 			`,
-			accountID,
 			logger.EntryTypeBounce,
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Select EntryTypeBounce")
 		}
 
 		err = pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.InboundReject,
 			`
 			WITH series AS (
@@ -162,9 +159,8 @@ func (s *Site) getDashboard() (*route, error) {
 				FROM logs AS l
 					JOIN domains AS d ON l.domain_id = d.id
 				WHERE
-					d.account_id = $1
-					AND time > NOW() - INTERVAL '24 HOURS'
-					AND l.etype = $2
+					time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $1
 				GROUP BY 1
 				ORDER BY 1
 			)
@@ -177,11 +173,10 @@ func (s *Site) getDashboard() (*route, error) {
 			GROUP BY series.hour
 			ORDER BY series.hour
 			`,
-			accountID,
-			logger.EntryTypeBounce,
+			logger.EntryTypeReject,
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Select EntryTypeReject")
 		}
 
 		s.renderTemplate(w, tmpl, r, d)

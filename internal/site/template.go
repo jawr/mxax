@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/site/funcs"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
@@ -69,7 +70,7 @@ func (s Site) templateResponse(path, method, routeName, templatePath string) (*r
 	}
 
 	// actual handler
-	r.h = func(_ int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(_ pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: routeName,

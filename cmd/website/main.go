@@ -27,9 +27,17 @@ func run() error {
 	}
 	defer db.Close(ctx)
 
-	log.Println("Connected to the Database")
+	log.Println("Connected to the Accounts Database")
 
-	server, err := site.NewSite(db)
+	adminDB, err := pgx.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
+	if err != nil {
+		return errors.WithMessage(err, "pgx.Connect")
+	}
+	defer adminDB.Close(ctx)
+
+	log.Println("Connected to the Admin Database")
+
+	server, err := site.NewSite(db, adminDB)
 	if err != nil {
 		return errors.WithMessage(err, "NewSite")
 	}

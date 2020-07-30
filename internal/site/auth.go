@@ -3,13 +3,14 @@ package site
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -20,7 +21,7 @@ type session struct {
 	AccountID int
 }
 
-type accountHandle func(accountID int, w http.ResponseWriter, r *http.Request, ps httprouter.Params) error
+type accountHandle func(tx pgx.Tx, w http.ResponseWriter, r *http.Request, ps httprouter.Params) error
 
 func (s *Site) auth(r *route) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
@@ -30,13 +31,6 @@ func (s *Site) auth(r *route) httprouter.Handle {
 			next = ""
 		} else {
 			next = "?next=" + next
-		}
-
-		if os.Getenv("MXAX_DEV") == "1" {
-			if err := r.h(1, w, req, ps); err != nil {
-				s.handleError(w, r, err)
-			}
-			return
 		}
 
 		c, err := req.Cookie("mxax_session_token")
@@ -83,6 +77,7 @@ func (s *Site) auth(r *route) httprouter.Handle {
 				}
 
 				accountID = ses.AccountID
+
 				return nil
 			})
 		})
@@ -95,9 +90,30 @@ func (s *Site) auth(r *route) httprouter.Handle {
 		}
 
 		if err == nil && accountID > 0 {
-			if err := r.h(accountID, w, req, ps); err != nil {
+			tx, err := s.db.Begin(req.Context())
+			if err != nil {
 				s.handleError(w, r, err)
+				return
 			}
+			defer tx.Rollback(req.Context())
+
+			setCurrentAccountID := fmt.Sprintf("SET mxax.current_account_id TO %d", accountID)
+
+			if _, err := tx.Exec(req.Context(), setCurrentAccountID); err != nil {
+				s.handleError(w, r, err)
+				return
+			}
+
+			if err := r.h(tx, w, req, ps); err != nil {
+				s.handleError(w, r, err)
+				return
+			}
+
+			if err := tx.Commit(req.Context()); err != nil {
+				s.handleError(w, r, err)
+				return
+			}
+
 			return
 		}
 
@@ -132,7 +148,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 			password := req.FormValue("password")
 
 			if username == "trains@mx.ax" && password == "iliketrains" {
-				accountID := 1
+				accountID := 4
 
 				if err := s.setCookie(w, req, accountID); err != nil {
 					s.handleError(w, r, err)
@@ -146,7 +162,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 				}
 
 				// update last login
-				_, err := s.db.Exec(
+				_, err := s.adminDB.Exec(
 					req.Context(),
 					"UPDATE accounts SET last_login_at = NOW() WHERE id = $1",
 					accountID,
@@ -175,7 +191,7 @@ func (s *Site) getLogout() (*route, error) {
 		methods: []string{"GET"},
 	}
 
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(_ pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		// delete from sessionStore
 
@@ -204,7 +220,7 @@ func (s *Site) setCookie(w http.ResponseWriter, r *http.Request, accountID int) 
 	err = s.sessionStore.Update(func(txn *badger.Txn) error {
 		ses := session{
 			ExpiresAt: expiresAt,
-			AccountID: 1,
+			AccountID: accountID,
 		}
 
 		buf := s.bufferPool.Get().(*bytes.Buffer)

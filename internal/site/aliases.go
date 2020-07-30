@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
+	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
@@ -41,7 +42,7 @@ func (s *Site) getAliases() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "aliases",
@@ -49,14 +50,14 @@ func (s *Site) getAliases() (*route, error) {
 
 		err := pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Aliases,
 			`
 				SELECT
 					a.*,
 					dom.name AS domain,
 					COALESCE(STRING_AGG(d.address, ', ') FILTER (
-						WHERE d.deleted_at IS NULL
+						WHERE d.deleted_at IS NULL AND ad.deleted_at IS NULL
 					), '') AS destinations
 				FROM 
 					aliases AS a
@@ -64,12 +65,11 @@ func (s *Site) getAliases() (*route, error) {
 					LEFT JOIN alias_destinations AS ad ON a.id = ad.alias_id
 					LEFT JOIN destinations AS d ON ad.destination_id = d.id
 				WHERE
-					dom.account_id = $1
-					AND a.deleted_at IS NULL
+					a.deleted_at IS NULL
+					AND d.deleted_at IS NULL
 				GROUP BY a.id, dom.name
 				ORDER BY dom.name, a.rule
 			`,
-			accountID,
 		)
 		if err != nil {
 			return err
@@ -115,7 +115,7 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "aliases",
@@ -123,21 +123,19 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 		}
 
 		// get domains and destinations
-		err := account.GetDomains(
+		err := account.GetVerifiedDomains(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Domains,
-			accountID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "GetDomains")
+			return errors.WithMessage(err, "GetVerifiedDomains")
 		}
 
 		err = account.GetDestinations(
 			req.Context(),
-			s.db,
-			&d.Destinations,
-			accountID,
+			tx,
+			d.Destinations,
 		)
 		if err != nil {
 			return errors.WithMessage(err, "GetDestinations")
@@ -175,9 +173,8 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 
 		err = account.CreateAlias(
 			req.Context(),
-			s.db,
+			tx,
 			rule,
-			accountID,
 			domainID,
 			destinationID,
 		)
@@ -232,7 +229,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "aliases",
@@ -249,9 +246,8 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		// get alias
 		err := account.GetAlias(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Alias,
-			accountID,
 			aliasID,
 		)
 		if err != nil {
@@ -261,9 +257,8 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		// get domain
 		err = account.GetDomainByID(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Domain,
-			accountID,
 			d.Alias.DomainID,
 		)
 		if err != nil {
@@ -273,24 +268,22 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		// select destinations
 		err = pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.ExistingDestinations,
 			`
 			SELECT * 
 			FROM destinations AS d 
 			WHERE 
-				account_id = $1 
-				AND id NOT IN (
+				id NOT IN (
 					SELECT destination_id 
 					FROM alias_destinations
 					WHERE 
-						alias_id = $2
+						alias_id = $1
 						AND deleted_at IS NULL
 				)
 				AND deleted_at IS NULL
 			ORDER BY address
 			`,
-			accountID,
 			d.Alias.ID,
 		)
 		if err != nil {
@@ -300,20 +293,18 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		// get existing destinations
 		err = pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.ExistingDestinations,
 			`
 			SELECT d.* 
 			FROM destinations AS d 
 				JOIN alias_destinations AS ad on ad.destination_id = d.id
 			WHERE 
-				d.account_id = $1 
-				AND ad.alias_id = $2 
+				ad.alias_id = $2 
 				AND d.deleted_at IS NULL
 				AND ad.deleted_at IS NULL
 			ORDER BY d.address
 			`,
-			accountID,
 			d.Alias.ID,
 		)
 		if err != nil {
@@ -344,9 +335,8 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		var destination account.Destination
 		err = account.GetDestinationByID(
 			req.Context(),
-			s.db,
+			tx,
 			&destination,
-			accountID,
 			destinationID,
 		)
 		if err != nil {
@@ -355,7 +345,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 
 		err = account.CreateAliasDestination(
 			req.Context(),
-			s.db,
+			tx,
 			d.Alias.ID,
 			destinationID,
 		)
@@ -387,7 +377,7 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		ids := s.idHasher.Decode(ps.ByName("hash"))
 		if len(ids) != 2 {
@@ -403,9 +393,8 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 		// get alias
 		err := account.GetAlias(
 			req.Context(),
-			s.db,
+			tx,
 			&alias,
-			accountID,
 			aliasID,
 		)
 		if err != nil {
@@ -415,16 +404,15 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 		// get destination
 		err = account.GetDestinationByID(
 			req.Context(),
-			s.db,
+			tx,
 			&destination,
-			accountID,
 			destinationID,
 		)
 		if err != nil {
 			return errors.WithMessage(err, "GetDestinationByID")
 		}
 
-		_, err = s.db.Exec(
+		_, err = tx.Exec(
 			req.Context(),
 			`
 			UPDATE alias_destinations 
@@ -458,7 +446,7 @@ func (s *Site) getDeleteAlias() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		ids := s.idHasher.Decode(ps.ByName("hash"))
 		if len(ids) != 1 {
@@ -472,20 +460,13 @@ func (s *Site) getDeleteAlias() (*route, error) {
 		// get alias
 		err := account.GetAlias(
 			req.Context(),
-			s.db,
+			tx,
 			&alias,
-			accountID,
 			aliasID,
 		)
 		if err != nil {
 			return errors.WithMessage(err, "GetAlias")
 		}
-
-		tx, err := s.db.Begin(req.Context())
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback(req.Context())
 
 		_, err = tx.Exec(
 			req.Context(),
@@ -507,10 +488,6 @@ func (s *Site) getDeleteAlias() (*route, error) {
 		)
 		if err != nil {
 			return errors.WithMessage(err, "Delete")
-		}
-
-		if err := tx.Commit(req.Context()); err != nil {
-			return err
 		}
 
 		http.Redirect(w, req, "/aliases", http.StatusFound)

@@ -3,6 +3,7 @@ package site
 import (
 	"net/http"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -24,7 +25,7 @@ func (s *Site) getSecurity() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "security",

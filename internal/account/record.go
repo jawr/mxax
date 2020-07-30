@@ -14,11 +14,13 @@ import (
 )
 
 type Record struct {
-	ID       int
-	DomainID int
-	Host     string
-	Rtype    string
-	Value    string
+	ID int
+
+	AccountID int
+	DomainID  int
+	Host      string
+	Rtype     string
+	Value     string
 
 	MetaData
 	LastVerifiedAt pgtype.Timestamp
@@ -103,7 +105,7 @@ func (r Record) Check(domain string, config *dns.ClientConfig) error {
 	return errors.New("No match")
 }
 
-func GetRecords(ctx context.Context, db *pgx.Conn, records *[]Record, domainID int) error {
+func GetRecords(ctx context.Context, db pgx.Tx, records *[]Record, domainID int) error {
 	return pgxscan.Select(
 		ctx,
 		db,

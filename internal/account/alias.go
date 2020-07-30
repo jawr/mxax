@@ -17,8 +17,9 @@ import (
 type ReturnPath struct {
 	ID uuid.UUID
 
-	AliasID  int
-	ReturnTo string
+	AccountID int
+	AliasID   int
+	ReturnTo  string
 
 	CreatedAt  time.Time
 	ReturnedAt pgtype.Timestamp
@@ -31,7 +32,8 @@ type ReturnPath struct {
 type Alias struct {
 	ID int
 
-	DomainID int
+	AccountID int
+	DomainID  int
 
 	Rule string
 
@@ -60,37 +62,33 @@ func (a *Alias) Check(user string) (bool, error) {
 	return a.rule.MatchString(user), nil
 }
 
-func GetAlias(ctx context.Context, db *pgx.Conn, alias *Alias, accountID, aliasID int) error {
+func GetAlias(ctx context.Context, db pgx.Tx, alias *Alias, aliasID int) error {
 	return pgxscan.Get(
 		ctx,
 		db,
 		alias,
 		`
-		SELECT a.* 
-		FROM aliases AS a
-			JOIN domains AS d ON a.domain_id = d.id
+		SELECT * 
+		FROM aliases
 		WHERE
-			a.id = $1
-			AND d.account_id = $2
-			AND d.deleted_at IS NULL
-			AND a.deleted_at IS NULL
+			id = $1
+			AND deleted_at IS NULL
 		`,
 		aliasID,
-		accountID,
 	)
 }
 
-func CreateAlias(ctx context.Context, db *pgx.Conn, rule string, accountID, domainID, destinationID int) error {
+func CreateAlias(ctx context.Context, db pgx.Tx, rule string, domainID, destinationID int) error {
 	// get domain
 	var domain Domain
-	err := GetDomainByID(ctx, db, &domain, accountID, domainID)
+	err := GetDomainByID(ctx, db, &domain, domainID)
 	if err != nil {
 		return errors.WithMessage(err, "GetDomainByID")
 	}
 
 	// get destination
 	var destination Destination
-	err = GetDestinationByID(ctx, db, &destination, accountID, destinationID)
+	err = GetDestinationByID(ctx, db, &destination, destinationID)
 	if err != nil {
 		return errors.WithMessage(err, "GetDestinationByID")
 	}
@@ -101,8 +99,8 @@ func CreateAlias(ctx context.Context, db *pgx.Conn, rule string, accountID, doma
 		ctx,
 		`
 			WITH e AS (
-				INSERT INTO aliases (domain_id, rule) 
-				VALUES ($1, $2) 
+				INSERT INTO aliases (account_id, domain_id, rule) 
+				VALUES (current_setting('mxax.current_account_id')::INT, $1, $2) 
 				ON CONFLICT (domain_id, rule) DO UPDATE SET deleted_at = NULL RETURNING id
 			)
 			SELECT * FROM e UNION SELECT id FROM aliases WHERE domain_id = $1 AND rule = $2
@@ -117,12 +115,12 @@ func CreateAlias(ctx context.Context, db *pgx.Conn, rule string, accountID, doma
 	return CreateAliasDestination(ctx, db, aliasID, destinationID)
 }
 
-func CreateAliasDestination(ctx context.Context, db *pgx.Conn, aliasID, destinationID int) error {
+func CreateAliasDestination(ctx context.Context, db pgx.Tx, aliasID, destinationID int) error {
 	_, err := db.Exec(
 		ctx,
 		`
-		INSERT INTO alias_destinations (alias_id, destination_id) 
-			VALUES ($1, $2)
+		INSERT INTO alias_destinations (account_id, alias_id, destination_id) 
+			VALUES (current_setting('mxax.current_account_id')::INT, $1, $2)
 			ON CONFLICT (alias_id, destination_id) DO UPDATE SET deleted_at = NULL 
 		`,
 		aliasID,

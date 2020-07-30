@@ -17,7 +17,10 @@ import (
 )
 
 type Site struct {
-	db         *pgx.Conn
+	db *pgx.Conn
+	// full access
+	adminDB *pgx.Conn
+
 	router     *httprouter.Router
 	bufferPool sync.Pool
 
@@ -31,7 +34,7 @@ type Site struct {
 
 // eventually if we want to do lots of testing we might want
 // to swap out db for a bunch of interfaces for each route
-func NewSite(db *pgx.Conn) (*Site, error) {
+func NewSite(db, adminDB *pgx.Conn) (*Site, error) {
 	// errorTemplate
 	errorTemplate, err := template.ParseFiles("templates/errors/index.html")
 	if err != nil {
@@ -70,7 +73,8 @@ func NewSite(db *pgx.Conn) (*Site, error) {
 	}
 
 	s := &Site{
-		db: db,
+		db:      db,
+		adminDB: adminDB,
 		bufferPool: sync.Pool{
 			New: func() interface{} {
 				return new(bytes.Buffer)

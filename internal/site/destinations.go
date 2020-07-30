@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/georgysavva/scany/pgxscan"
+	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
@@ -37,7 +38,7 @@ func (s *Site) getDestinations() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "destinations",
@@ -45,19 +46,19 @@ func (s *Site) getDestinations() (*route, error) {
 
 		err := pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Destinations,
 			`
 			SELECT 
 				d.*, 
-				COALESCE(COUNT(ad.*), 0) AS aliases
+				COALESCE(COUNT(ad.*) FILTER (
+					WHERE ad.deleted_at IS NULL
+				), 0) AS aliases
 			FROM destinations AS d
 				LEFT JOIN alias_destinations AS ad ON d.id = ad.destination_id
-			WHERE d.account_id = $1
-				AND d.deleted_at IS NULL
+			WHERE d.deleted_at IS NULL
 			GROUP BY d.id
 			`,
-			accountID,
 		)
 		if err != nil {
 			return err
@@ -101,7 +102,7 @@ func (s *Site) getPostCreateDestination() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route:  "destinations",
@@ -129,10 +130,13 @@ func (s *Site) getPostCreateDestination() (*route, error) {
 
 		if !d.Errors.Error() {
 
-			_, err := s.db.Exec(
+			_, err := tx.Exec(
 				req.Context(),
-				"INSERT INTO destinations (account_id, address) VALUES ($1, $2) ON CONFLICT (account_id,address) DO UPDATE SET deleted_at = NULL",
-				accountID,
+				`
+				INSERT INTO destinations (account_id, address) 
+				VALUES (current_setting('mxax.current_account_id')::INT, $1) 
+					ON CONFLICT (account_id, address) DO UPDATE SET deleted_at = NULL
+				`,
 				strings.ToLower(address),
 			)
 			if err != nil {
@@ -161,7 +165,7 @@ func (s *Site) getDeleteDestination() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		ids := s.idHasher.Decode(ps.ByName("hash"))
 		if len(ids) != 1 {
@@ -171,10 +175,9 @@ func (s *Site) getDeleteDestination() (*route, error) {
 		destinationID := ids[0]
 
 		var count int
-		err := s.db.QueryRow(
+		err := tx.QueryRow(
 			req.Context(),
-			"SELECT COUNT(*) FROM destinations WHERE account_id = $1 AND id = $2 AND deleted_at IS NULL",
-			accountID,
+			"SELECT COUNT(*) FROM destinations WHERE id = $1 AND deleted_at IS NULL",
 			destinationID,
 		).Scan(&count)
 		if err != nil {
@@ -185,15 +188,9 @@ func (s *Site) getDeleteDestination() (*route, error) {
 			return errors.New("Destination not found")
 		}
 
-		tx, err := s.db.Begin(req.Context())
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback(req.Context())
-
 		_, err = tx.Exec(
 			req.Context(),
-			"DELETE FROM alias_destinations WHERE destination_id = $1",
+			"UPDATE alias_destinations SET deleted_at = NOW() WHERE destination_id = $1",
 			destinationID,
 		)
 		if err != nil {
@@ -206,10 +203,6 @@ func (s *Site) getDeleteDestination() (*route, error) {
 			destinationID,
 		)
 		if err != nil {
-			return err
-		}
-
-		if err := tx.Commit(req.Context()); err != nil {
 			return err
 		}
 

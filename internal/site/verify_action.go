@@ -3,6 +3,7 @@ package site
 import (
 	"net/http"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -12,9 +13,9 @@ func (s *Site) verifyAction(fn accountHandle) accountHandle {
 		Next  string
 	}
 
-	return func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	return func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 		if _, ok := req.URL.Query()["verify"]; ok {
-			return fn(accountID, w, req, ps)
+			return fn(tx, w, req, ps)
 		}
 
 		d := data{

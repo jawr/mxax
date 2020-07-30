@@ -5,6 +5,7 @@ import (
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
 )
@@ -29,7 +30,7 @@ func (s *Site) getLog() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "log",
@@ -38,19 +39,16 @@ func (s *Site) getLog() (*route, error) {
 		// get forward entries
 		err := pgxscan.Select(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Entries,
 			`
                 SELECT                                                                 
-					l.*
-                FROM logs AS l
-                    JOIN domains AS d ON l.domain_id = d.id
+					*
+                FROM logs
                 WHERE
-                    d.account_id = $1
-                    AND l.time > NOW() - INTERVAL '48 HOURS'
-                ORDER BY l.time DESC
+                    time > NOW() - INTERVAL '48 HOURS'
+                ORDER BY time DESC
 			`,
-			accountID,
 		)
 		if err != nil {
 			return err
@@ -83,7 +81,7 @@ func (s *Site) getLogDetail() (*route, error) {
 	}
 
 	// actual handler
-	r.h = func(accountID int, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
 			Route: "log",
@@ -102,19 +100,16 @@ func (s *Site) getLogDetail() (*route, error) {
 		// get forward entries
 		err = pgxscan.Get(
 			req.Context(),
-			s.db,
+			tx,
 			&d.Entry,
 			`
                 SELECT                                                                 
-					l.*
-                FROM logs AS l
-                    JOIN domains AS d ON l.domain_id = d.id
+					*
+                FROM logs
                 WHERE
-                    d.account_id = $1
-                    AND l.time = $2
-					AND l.id = $3
+                    time = $1
+					AND id = $2
 			`,
-			accountID,
 			ltime,
 			lid,
 		)

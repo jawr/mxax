@@ -97,7 +97,7 @@ func (d Domain) BuildVerifyRecord() string {
 	)
 }
 
-func GetDomain(ctx context.Context, db *pgx.Conn, domain *Domain, accountID int, name string) error {
+func GetDomain(ctx context.Context, db pgx.Tx, domain *Domain, name string) error {
 	return pgxscan.Get(
 		ctx,
 		db,
@@ -106,16 +106,14 @@ func GetDomain(ctx context.Context, db *pgx.Conn, domain *Domain, accountID int,
 			SELECT * 
 			FROM domains 
 			WHERE 
-				account_id = $1 
-				AND name = $2
+				name = $1
 				AND deleted_at IS NULL
 			`,
-		accountID,
 		name,
 	)
 }
 
-func GetDomainByID(ctx context.Context, db *pgx.Conn, domain *Domain, accountID, domainID int) error {
+func GetDomainByID(ctx context.Context, db pgx.Tx, domain *Domain, domainID int) error {
 	return pgxscan.Get(
 		ctx,
 		db,
@@ -124,16 +122,14 @@ func GetDomainByID(ctx context.Context, db *pgx.Conn, domain *Domain, accountID,
 			SELECT * 
 			FROM domains 
 			WHERE 
-				account_id = $1 
-				AND id = $2
+				id = $1
 				AND deleted_at IS NULL
 			`,
-		accountID,
 		domainID,
 	)
 }
 
-func GetDomains(ctx context.Context, db *pgx.Conn, domains *[]Domain, accountID int) error {
+func GetDomains(ctx context.Context, db pgx.Tx, domains *[]Domain) error {
 	return pgxscan.Select(
 		ctx,
 		db,
@@ -141,20 +137,45 @@ func GetDomains(ctx context.Context, db *pgx.Conn, domains *[]Domain, accountID 
 		`
 			SELECT * 
 			FROM domains 
-			WHERE 
-				account_id = $1 
-				AND deleted_at IS NULL
+			WHERE deleted_at IS NULL
 			`,
-		accountID,
 	)
 }
 
-func DeleteDomain(ctx context.Context, db *pgx.Conn, domainID, accountID int) error {
+func GetVerifiedDomains(ctx context.Context, db pgx.Tx, domains *[]Domain) error {
+	return pgxscan.Select(
+		ctx,
+		db,
+		domains,
+		`
+			SELECT * 
+			FROM domains 
+			WHERE
+				deleted_at IS NULL
+				AND verified_at IS NOT NULL
+			`,
+	)
+}
+
+func DeleteDomain(ctx context.Context, db pgx.Tx, domainID int) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return errors.WithMessage(err, "Begin")
 	}
 	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(
+		ctx,
+		`
+		UPDATE dkim_keys
+			SET deleted_at = NOW()
+		WHERE domain_id = $1
+		`,
+		domainID,
+	)
+	if err != nil {
+		return errors.WithMessage(err, "UPDATE dkim_keys")
+	}
 
 	_, err = tx.Exec(
 		ctx,
@@ -209,7 +230,21 @@ func DeleteDomain(ctx context.Context, db *pgx.Conn, domainID, accountID int) er
 	return nil
 }
 
-func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int, expiresAt time.Time) error {
+func CreateDomain(ctx context.Context, db pgx.Tx, name string, expiresAt time.Time) error {
+	var count int
+	err := db.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM domains WHERE name = $1 AND deleted_at IS NOT NULL",
+		name,
+	).Scan(&count)
+	if err != nil {
+		return errors.New("Select domains check")
+	}
+
+	if count > 1 {
+		return errors.New("Domain already exists")
+	}
+
 	// create a code
 	var verifyCode string
 	var tries int
@@ -226,10 +261,9 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 
 		verifyCode = fmt.Sprintf("mxax-%X", b)
 
-		var count int
 		err := db.QueryRow(
 			ctx,
-			"SELECT COUNT(*) FROM domains WHERE verify_code = $1",
+			"SELECT COUNT(*) FROM domains WHERE verify_code = $1 AND deleted_at IS NULL",
 			verifyCode,
 		).Scan(&count)
 		if err != nil {
@@ -255,16 +289,17 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 		`
 		WITH e AS (
 		INSERT INTO domains (account_id, name, verify_code, expires_at) 
-			VALUES ($1, $2, $3, $4)
+			VALUES (current_setting('mxax.current_account_id')::INT, $1, $2, $3)
 		ON CONFLICT (name) DO 
-			UPDATE deleted_at = null 
-			WHERE
-				account_id = EXCLUDED.account_id
+			UPDATE SET 
+				deleted_at = null, 
+				verify_code = EXCLUDED.verify_code, 
+				verified_at = null,
+				expires_at = EXCLUDED.expires_at
 		RETURNING id
 		)
-		SELECT * FROM e UNION SELECT id FROM domains WHERE name = $2 AND account_id = $1
+		SELECT * FROM e UNION SELECT id FROM domains WHERE name = $1
 		`,
-		accountID,
 		name,
 		verifyCode,
 		expiresAt,
@@ -282,7 +317,7 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 	// insert dkim
 	_, err = tx.Exec(
 		ctx,
-		"INSERT INTO dkim_keys (domain_id, private_key, public_key) VALUES ($1, $2, $3)",
+		"INSERT INTO dkim_keys (account_id,domain_id, private_key, public_key) VALUES (current_setting('mxax.current_account_id')::INT, $1, $2, $3)",
 		id,
 		dkimKey.PrivateKey,
 		dkimKey.PublicKey,
@@ -294,7 +329,7 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 	// insert dkim record
 	_, err = tx.Exec(
 		ctx,
-		"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO records (account_id,domain_id, host, rtype, value) VALUES (current_setting('mxax.current_account_id')::INT,$1, $2, $3, $4)",
 		id,
 		"mxax._domainkey",
 		"TXT",
@@ -307,7 +342,7 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 	// insert mx
 	_, err = tx.Exec(
 		ctx,
-		"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO records (account_id,domain_id, host, rtype, value) VALUES (current_setting('mxax.current_account_id')::INT,$1, $2, $3, $4)",
 		id,
 		"@",
 		"MX",
@@ -319,7 +354,7 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 
 	_, err = tx.Exec(
 		ctx,
-		"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO records (account_id,domain_id, host, rtype, value) VALUES (current_setting('mxax.current_account_id')::INT,$1, $2, $3, $4)",
 		id,
 		"@",
 		"MX",
@@ -329,13 +364,10 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 		return errors.WithMessage(err, "Insert MX Record")
 	}
 
-	// TODO
-	// host a second mx for redundancy
-
 	// insert spf
 	_, err = tx.Exec(
 		ctx,
-		"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO records (account_id,domain_id, host, rtype, value) VALUES (current_setting('mxax.current_account_id')::INT,$1, $2, $3, $4)",
 		id,
 		"@",
 		"TXT",
@@ -348,7 +380,7 @@ func CreateDomain(ctx context.Context, db *pgx.Conn, name string, accountID int,
 	// insert dmarc
 	_, err = tx.Exec(
 		ctx,
-		"INSERT INTO records (domain_id, host, rtype, value) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO records (account_id,domain_id, host, rtype, value) VALUES (current_setting('mxax.current_account_id')::INT,$1, $2, $3, $4)",
 		id,
 		"_dmarc",
 		"TXT",

@@ -91,7 +91,7 @@ func (d Domain) CheckVerifyCode(config *dns.ClientConfig) error {
 
 func (d Domain) BuildVerifyRecord() string {
 	return fmt.Sprintf(
-		"%s 10800 IN TXT %s.mx.ax.",
+		"%s 10800 IN CNAME %s.mx.ax.",
 		d.VerifyCode,
 		d.VerifyCode,
 	)

@@ -27,7 +27,7 @@ func run() error {
 	defer cancel()
 
 	// setup  database connection
-	db, err := pgx.Connect(ctx, os.Getenv("MXAX_DB_URL"))
+	db, err := pgx.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
 	if err != nil {
 		return errors.WithMessage(err, "pgx.Connect")
 	}

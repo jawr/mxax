@@ -20,6 +20,7 @@ type Entry struct {
 	ID uuid.UUID
 
 	// for charting and deleting
+	AccountID     int
 	DomainID      int
 	AliasID       int
 	DestinationID int

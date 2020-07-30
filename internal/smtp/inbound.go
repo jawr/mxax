@@ -32,8 +32,9 @@ type InboundSession struct {
 	Message bytes.Buffer
 
 	// account details
-	DomainID int
-	AliasID  int
+	AccountID int
+	DomainID  int
+	AliasID   int
 
 	// reference to the server
 	server *Server
@@ -113,7 +114,7 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 func (s *InboundSession) Rcpt(to string) error {
 	// if no domain id then just drop
-	domainID, err := s.server.domainHandler(to)
+	accountID, domainID, err := s.server.domainHandler(to)
 	if err != nil {
 		log.Printf("%s - Rcpt - To: '%s' - domainHandler error: %s", s, to, err)
 		return errors.Errorf("unknown recipient (%s)", s)
@@ -144,6 +145,7 @@ func (s *InboundSession) Rcpt(to string) error {
 
 			// inc reject metric
 			s.server.publishLogEntry(logger.Entry{
+				AccountID: accountID,
 				DomainID:  domainID,
 				AliasID:   aliasID,
 				FromEmail: s.From,
@@ -159,6 +161,7 @@ func (s *InboundSession) Rcpt(to string) error {
 		s.AliasID = aliasID
 	}
 
+	s.AccountID = accountID
 	s.DomainID = domainID
 	s.To = to
 
@@ -178,14 +181,15 @@ func (s *InboundSession) Data(r io.Reader) error {
 
 	if s.returnPath {
 		if err := s.server.queueEmailHandler(Email{
-			ID:       s.ID,
-			From:     s.From,
-			Via:      s.Via,
-			To:       s.To,
-			Message:  s.Message.Bytes(),
-			DomainID: s.DomainID,
-			AliasID:  s.AliasID,
-			Bounce:   "Returned",
+			ID:        s.ID,
+			From:      s.From,
+			Via:       s.Via,
+			To:        s.To,
+			Message:   s.Message.Bytes(),
+			AccountID: s.AccountID,
+			DomainID:  s.DomainID,
+			AliasID:   s.AliasID,
+			Bounce:    "Returned",
 		}); err != nil {
 			log.Printf("%s - Data - queueEmailHandler: %s", s, err)
 			return errors.Errorf("unable to forward this message (%s)", s)

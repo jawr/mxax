@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const sessionDuration = time.Second * 600
@@ -147,37 +149,52 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 			username := req.FormValue("username")
 			password := req.FormValue("password")
 
-			if username == "trains@mx.ax" && password == "iliketrains" {
-				accountID := 4
+			var accountID int
+			var hash []byte
+			err := s.adminDB.QueryRow(
+				req.Context(),
+				"SELECT id, password FROM accounts WHERE username = $1",
+				username,
+			).Scan(&accountID, &hash)
+			if err != nil {
+				log.Printf("SELECT: %s", err)
+				d.Errors.Add("", "Username not found or Password is incorrect")
+				goto FAIL
+			}
 
-				if err := s.setCookie(w, req, accountID); err != nil {
-					s.handleError(w, r, err)
-					return
-				}
+			if err := bcrypt.CompareHashAndPassword(hash, []byte(password)); err != nil {
+				log.Printf("Password mismatch: %s", err)
+				d.Errors.Add("", "Username not found or Password is incorrect")
+				goto FAIL
+			}
 
-				next := "/"
-				allNext, ok := req.URL.Query()["next"]
-				if ok && len(allNext) > 0 {
-					next = allNext[0]
-				}
-
-				// update last login
-				_, err := s.adminDB.Exec(
-					req.Context(),
-					"UPDATE accounts SET last_login_at = NOW() WHERE id = $1",
-					accountID,
-				)
-				if err != nil {
-					s.handleError(w, r, err)
-					return
-				}
-
-				http.Redirect(w, req, next, http.StatusFound)
+			if err := s.setCookie(w, req, accountID); err != nil {
+				s.handleError(w, r, err)
 				return
 			}
 
-			d.Errors.Add("", "Username not found or Password is incorrect")
+			next := "/"
+			allNext, ok := req.URL.Query()["next"]
+			if ok && len(allNext) > 0 {
+				next = allNext[0]
+			}
+
+			// update last login
+			_, err = s.adminDB.Exec(
+				req.Context(),
+				"UPDATE accounts SET last_login_at = NOW() WHERE id = $1",
+				accountID,
+			)
+			if err != nil {
+				s.handleError(w, r, err)
+				return
+			}
+
+			http.Redirect(w, req, next, http.StatusFound)
+			return
 		}
+
+	FAIL:
 
 		if err := tmpl.ExecuteTemplate(w, "login", d); err != nil {
 			s.handleError(w, r, err)

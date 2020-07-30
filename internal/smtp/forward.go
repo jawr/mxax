@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 
-	// "io/ioutil"
 	"fmt"
 	"net"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 	"github.com/emersion/go-msgauth/dkim"
 	"github.com/jackc/pgx/v4"
+	"github.com/jhillyerd/enmime"
 	"github.com/pkg/errors"
 )
 
@@ -121,8 +121,9 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 		// also how do we handle this when we have multiple addresses
 		_, err = db.Exec(
 			context.Background(),
-			"INSERT INTO return_paths (id, alias_id, return_to) VALUES ($1, $2, $3)",
+			"INSERT INTO return_paths (id, account_id, alias_id, return_to) VALUES ($1, $2, $3, $4)",
 			session.ID,
+			session.AccountID,
 			session.AliasID,
 			session.From,
 		)
@@ -142,6 +143,24 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 
 		// create a reader
 		message := bytes.NewReader(session.Message.Bytes())
+
+		// read envelope to extract the from header
+		env, err := enmime.ReadEnvelope(message)
+		if err != nil {
+			return errors.WithMessage(err, "unable to read envelope")
+		}
+
+		fromList, err := env.AddressList("From")
+		if err != nil {
+			return errors.WithMessage(err, "AddressList")
+		}
+
+		if len(fromList) == 0 {
+			return errors.New("no from address found")
+		}
+
+		// rewrite the session From as it is stored in return_paths
+		session.From = fromList[0].Address
 
 		for _, destination := range destinations {
 			if _, err := message.Seek(0, io.SeekStart); err != nil {
@@ -214,6 +233,7 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 				Via:           session.To,
 				To:            destination.Address,
 				Message:       b.Bytes(),
+				AccountID:     session.AccountID,
 				DomainID:      session.DomainID,
 				AliasID:       session.AliasID,
 				DestinationID: destination.ID,

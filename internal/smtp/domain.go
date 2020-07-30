@@ -15,7 +15,7 @@ import (
 // DomainHandler checks to see if the domain is valid
 // and if the domain has any domaines attached that
 // match this email address
-type domainHandlerFn func(string) (int, error)
+type domainHandlerFn func(string) (int, int, error)
 
 func (s *Server) makeDomainHandler(db *pgx.Conn) (domainHandlerFn, error) {
 
@@ -39,23 +39,24 @@ func (s *Server) makeDomainHandler(db *pgx.Conn) (domainHandlerFn, error) {
 
 	const defaultTTL = time.Minute * 5
 
-	return func(email string) (int, error) {
+	return func(email string) (int, int, error) {
 		email = strings.ToLower(email)
 
 		parts := strings.Split(email, "@")
 		if len(parts) != 2 {
-			return 0, errors.Errorf("bad email: '%s'", email)
+			return 0, 0, errors.Errorf("bad email: '%s'", email)
 		}
 
 		domain := parts[1]
 
-		if domainID, ok := domains.Get(domain); ok {
-			return domainID.(int), nil
+		if e, ok := domains.Get(domain); ok {
+			d := e.(account.Domain)
+			return d.AccountID, d.ID, nil
 		}
 
 		// check if this is a bad domain we have checked already
 		if _, ok := nxdomain.Get(domain); ok {
-			return 0, errors.Errorf("nxdomain cache hit for '%s'", domain)
+			return 0, 0, errors.Errorf("nxdomain cache hit for '%s'", domain)
 		}
 
 		// search for domain in the database
@@ -76,11 +77,11 @@ func (s *Server) makeDomainHandler(db *pgx.Conn) (domainHandlerFn, error) {
 		)
 		if err != nil {
 			nxdomain.SetWithTTL(domain, struct{}{}, 1, defaultTTL)
-			return 0, err
+			return 0, 0, err
 		}
 
-		domains.SetWithTTL(domain, dom.ID, 1, defaultTTL)
+		domains.SetWithTTL(domain, dom, 1, defaultTTL)
 
-		return dom.ID, nil
+		return dom.AccountID, dom.ID, nil
 	}, nil
 }

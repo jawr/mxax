@@ -29,7 +29,7 @@ func run() error {
 	defer cancel()
 
 	// setup  database connection
-	db, err := pgx.Connect(ctx, os.Getenv("MXAX_DB_URL"))
+	db, err := pgx.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
 	if err != nil {
 		return errors.WithMessage(err, "pgx.Connect")
 	}
@@ -80,6 +80,7 @@ func run() error {
 					(
 						time,
 						id,
+						account_id,
 						domain_id,
 						alias_id,
 						destination_id,
@@ -90,9 +91,10 @@ func run() error {
 						status,
 						message
 					)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 				e.Time,
 				e.ID,
+				e.AccountID,
 				e.DomainID,
 				e.AliasID,
 				e.DestinationID,

@@ -68,11 +68,11 @@ func (s *InboundSession) String() string {
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
-	log.Printf("%s - Mail - From '%s'", s, from)
+	log.Printf("IB - %s - Mail - From '%s'", s, from)
 
 	tcpAddr, ok := s.State.RemoteAddr.(*net.TCPAddr)
 	if !ok {
-		log.Printf("%s - Mail - Unable to case RemoteAddr: %+v", s, s.State)
+		log.Printf("IB - %s - Mail - Unable to case RemoteAddr: %+v", s, s.State)
 		return errors.Errorf("network error (%s)", s)
 	}
 
@@ -116,7 +116,7 @@ func (s *InboundSession) Rcpt(to string) error {
 	// if no domain id then just drop
 	accountID, domainID, err := s.server.domainHandler(to)
 	if err != nil {
-		log.Printf("%s - Rcpt - To: '%s' - domainHandler error: %s", s, to, err)
+		log.Printf("IB - %s - Rcpt - To: '%s' - domainHandler error: %s", s, to, err)
 		return errors.Errorf("unknown recipient (%s)", s)
 	}
 
@@ -124,11 +124,11 @@ func (s *InboundSession) Rcpt(to string) error {
 	// have some sort of catch all
 	oID, returnPath, err := s.server.returnPathHandler(to)
 	if err != nil {
-		log.Printf("%s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
+		log.Printf("IB - %s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
 	}
 
 	if len(returnPath) > 0 {
-		log.Printf("%s - Rcpt - To: %s Found return path: %s reset id to %s", s, to, returnPath, oID)
+		log.Printf("IB - %s - Rcpt - To: %s Found return path: %s reset id to %s", s, to, returnPath, oID)
 
 		// overwrite to with returnPath and set returnPath flag
 		s.Via = to
@@ -141,7 +141,7 @@ func (s *InboundSession) Rcpt(to string) error {
 		// otherwise check alias
 		aliasID, err := s.server.aliasHandler(to)
 		if err != nil {
-			log.Printf("%s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
+			log.Printf("IB - %s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
 
 			// inc reject metric
 			s.server.publishLogEntry(logger.Entry{
@@ -165,7 +165,7 @@ func (s *InboundSession) Rcpt(to string) error {
 	s.DomainID = domainID
 	s.To = to
 
-	log.Printf("%s - Mail - To: '%s' - AliasID: %d", s, to, s.AliasID)
+	log.Printf("IB - %s - Mail - To: '%s' - AliasID: %d", s, to, s.AliasID)
 
 	return nil
 }
@@ -175,7 +175,7 @@ func (s *InboundSession) Data(r io.Reader) error {
 
 	n, err := s.Message.ReadFrom(r)
 	if err != nil {
-		log.Printf("%s - Data - ReadFrom: %s", s, err)
+		log.Printf("IB - %s - Data - ReadFrom: %s", s, err)
 		return errors.Errorf("can not read message (%s)", s)
 	}
 
@@ -191,23 +191,23 @@ func (s *InboundSession) Data(r io.Reader) error {
 			AliasID:   s.AliasID,
 			Bounce:    "Returned",
 		}); err != nil {
-			log.Printf("%s - Data - queueEmailHandler: %s", s, err)
+			log.Printf("IB - %s - Data - queueEmailHandler: %s", s, err)
 			return errors.Errorf("unable to forward this message (%s)", s)
 		}
 	} else {
 		if err := s.server.forwardHandler(s); err != nil {
-			log.Printf("%s - Data - forwardHandler: %s", s, err)
+			log.Printf("IB - %s - Data - forwardHandler: %s", s, err)
 			return errors.Errorf("unable to forward this message (%s)", s)
 		}
 	}
 
-	log.Printf("%s - Data - read %d bytes in %s", s, n, time.Since(start))
+	log.Printf("IB - %s - Data - read %d bytes in %s", s, n, time.Since(start))
 
 	return nil
 }
 
 func (s *InboundSession) Reset() {
-	log.Printf("%s - Reset - after %s", s, time.Since(s.start))
+	log.Printf("IB - %s - Reset - after %s", s, time.Since(s.start))
 	s.From = ""
 	s.To = ""
 	s.Message.Reset()
@@ -219,6 +219,6 @@ func (s *InboundSession) Logout() error {
 	if len(s.From) > 0 {
 		s.Reset()
 	}
-	log.Printf("%s - Logout", s)
+	log.Printf("IB - %s - Logout", s)
 	return nil
 }

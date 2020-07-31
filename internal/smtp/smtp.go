@@ -2,14 +2,17 @@ package smtp
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"os"
 	"sync"
 
+	"github.com/dgraph-io/ristretto"
 	"github.com/emersion/go-smtp"
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Server will listen for smtp connections
@@ -33,11 +36,32 @@ type Server struct {
 
 	// bytes pool
 	bufferPool sync.Pool
+
+	// caches
+	usernameCache   *ristretto.Cache
+	nxusernameCache *ristretto.Cache
 }
 
 // Create a new Server, currently only handles inbound
 // connections
 func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*Server, error) {
+	usernameCache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7,     // number of keys to track frequency of (10M).
+		MaxCost:     1 << 30, // maximum cost of cache (1GB).
+		BufferItems: 64,      // number of keys per Get buffer.
+	})
+	if err != nil {
+		return nil, errors.WithMessage(err, "NewCache usernameCache")
+	}
+
+	nxusernameCache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7,     // number of keys to track frequency of (10M).
+		MaxCost:     1 << 30, // maximum cost of cache (1GB).
+		BufferItems: 64,      // number of keys per Get buffer.
+	})
+	if err != nil {
+		return nil, errors.WithMessage(err, "NewCache nxusernameCache")
+	}
 
 	server := &Server{
 		db:             db,
@@ -46,6 +70,8 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 		bufferPool: sync.Pool{
 			New: func() interface{} { return new(bytes.Buffer) },
 		},
+		usernameCache:   usernameCache,
+		nxusernameCache: nxusernameCache,
 	}
 
 	// setup handlers using closures to keep from polluting the server struct
@@ -89,6 +115,44 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 func (s *Server) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
 	// return an OutboundSession
 	return nil, smtp.ErrAuthUnsupported
+	session, err := s.newOutboundSession(s.s.Domain, state)
+	if err != nil {
+		log.Printf("Login; unable to create new OutboundSession: %s", err)
+		return nil, errors.New("temporary error, please try again later")
+	}
+
+	// filter out bad user/pass
+	if _, ok := s.nxusernameCache.Get(username); ok {
+		return nil, smtp.ErrAuthUnsupported
+	}
+	cachedPassword, ok := s.usernameCache.Get(password)
+
+	if !ok {
+		// look for good user
+		err = s.db.QueryRow(
+			context.Background(),
+			`
+			SELECT password FROM accounts WHERE username = $1
+			`,
+			username,
+		).Scan(&cachedPassword)
+		if err != nil {
+			s.nxusernameCache.Set(username, struct{}{})
+			return nil, errors.New("Not authorized")
+		}
+
+		s.usernameCache.Set(username, hashed)
+	}
+
+	if err := bcrypt.CompareHashAndPassword(cachedPassword, []byte(password)); err != nil {
+		// TODO
+		// fail2ban type
+		return nil, errors.New("Not authorized")
+	}
+
+	log.Printf("OB %s - init", session)
+
+	return session, nil
 }
 
 func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, error) {
@@ -98,7 +162,7 @@ func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, erro
 		return nil, errors.New("temporary error, please try again later")
 	}
 
-	log.Printf("%s - init", session)
+	log.Printf("IB %s - init", session)
 
 	return session, nil
 }

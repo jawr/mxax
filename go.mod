@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	blitiri.com.ar/go/spf v1.1.0
+	github.com/araddon/dateparse v0.0.0-20200409225146-d820a6159ab1
 	github.com/dgraph-io/badger v1.6.1
 	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/dgraph-io/ristretto v0.0.3
@@ -20,6 +21,7 @@ require (
 	github.com/jhillyerd/enmime v0.8.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/likexian/whois-go v1.7.1
+	github.com/likexian/whois-parser-go v1.14.3
 	github.com/miekg/dns v1.1.30
 	github.com/pkg/errors v0.9.1
 	github.com/speps/go-hashids v2.0.0+incompatible

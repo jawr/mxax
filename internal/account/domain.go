@@ -10,8 +10,10 @@ import (
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
-	whoisParser "github.com/jawr/whois-parser-go"
+
+	"github.com/araddon/dateparse"
 	"github.com/likexian/whois-go"
+	whoisParser "github.com/likexian/whois-parser-go"
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 )
@@ -39,16 +41,21 @@ type Domain struct {
 func GetDomainExpirationDate(name string) (time.Time, error) {
 	whoisResult, err := whois.Whois(name)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, errors.Wrap(err, "Whoise")
 	}
 
 	// parse and extract expiresAt
 	whoisParsed, err := whoisParser.Parse(whoisResult)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, errors.Wrap(err, "Parse")
 	}
 
-	return whoisParsed.Domain.ExpirationDate, nil
+	t, err := dateparse.ParseLocal(whoisParsed.Domain.ExpirationDate)
+	if err != nil {
+		return time.Time{}, errors.Wrap(err, "ParseLocal")
+	}
+
+	return t, nil
 }
 
 func (d Domain) CheckVerifyCode(config *dns.ClientConfig) error {

@@ -72,11 +72,6 @@ func (r Record) Check(domain string, config *dns.ClientConfig) error {
 	if len(resp.Answer) == 0 {
 		return errors.New("No record found.")
 	}
-
-	if len(resp.Answer) > 1 {
-		return errors.New("Too many records found.")
-	}
-
 	for _, a := range resp.Answer {
 		switch r.Rtype {
 		case "MX":

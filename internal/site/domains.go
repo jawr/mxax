@@ -83,7 +83,7 @@ func (s *Site) getDomains() (*route, error) {
 		for idx, dom := range d.Domains {
 			if dom.VerifiedAt.Time.IsZero() {
 				d.Domains[idx].Status = "unverified"
-			} else if dom.Records != 4 {
+			} else if dom.Records != 5 {
 				d.Domains[idx].Status = "incomplete"
 			} else {
 				d.Domains[idx].Status = "ready"

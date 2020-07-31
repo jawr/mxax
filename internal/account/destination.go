@@ -20,11 +20,11 @@ type Destination struct {
 	MetaData
 }
 
-func GetDestinations(ctx context.Context, db pgx.Tx, destinations []Destination) error {
+func GetDestinations(ctx context.Context, db pgx.Tx, destinations *[]Destination) error {
 	return pgxscan.Select(
 		ctx,
 		db,
-		&destinations,
+		destinations,
 		`
 			SELECT * 
 			FROM destinations 

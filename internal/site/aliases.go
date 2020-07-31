@@ -135,7 +135,7 @@ func (s *Site) getPostCreateAlias() (*route, error) {
 		err = account.GetDestinations(
 			req.Context(),
 			tx,
-			d.Destinations,
+			&d.Destinations,
 		)
 		if err != nil {
 			return errors.WithMessage(err, "GetDestinations")

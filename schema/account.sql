@@ -5,6 +5,7 @@ CREATE TABLE accounts (
 	id SERIAL PRIMARY KEY,
 	username TEXT UNIQUE NOT NULL,
 	password BYTEA NOT NULL,
+	smtp_password BYTEA,
 	verify_code UUID NOT NULL DEFAULT gen_random_uuid(),
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 	verified_at TIMESTAMP WITH TIME ZONE,
@@ -163,5 +164,4 @@ CREATE POLICY logs_isolation_policy ON logs
 		account_id = current_setting('mxax.current_account_id')::INT
 	);
 
--- SELECT create_hypertable('logs', 'time');
-
+SELECT create_hypertable('logs', 'time');

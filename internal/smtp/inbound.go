@@ -1,7 +1,6 @@
 package smtp
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -16,31 +15,7 @@ import (
 )
 
 type InboundSession struct {
-	start time.Time
-
-	ID uuid.UUID
-
-	// connection meta data
-	State *smtp.ConnectionState
-
-	ServerName string
-
-	// email
-	From    string
-	Via     string
-	To      string
-	Message bytes.Buffer
-
-	// account details
-	AccountID int
-	DomainID  int
-	AliasID   int
-
-	// reference to the server
-	server *Server
-
-	// internal flags
-	returnPath bool
+	data *SessionData
 }
 
 // initialise a new inbound session
@@ -53,33 +28,35 @@ func (s *Server) newInboundSession(serverName string, state *smtp.ConnectionStat
 	// try use a pool with a self reference to the server, is Logout guaranteed to be called?
 
 	session := InboundSession{
-		ID:         id,
-		start:      time.Now(),
-		ServerName: serverName,
-		State:      state,
-		server:     s,
+		data: &SessionData{
+			ID:         id,
+			start:      time.Now(),
+			ServerName: serverName,
+			State:      state,
+			server:     s,
+		},
 	}
 
 	return &session, nil
 }
 
 func (s *InboundSession) String() string {
-	return fmt.Sprintf("%s", s.ID)
+	return fmt.Sprintf("%s", s.data.ID)
 }
 
 func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 	log.Printf("IB - %s - Mail - From '%s'", s, from)
 
-	tcpAddr, ok := s.State.RemoteAddr.(*net.TCPAddr)
+	tcpAddr, ok := s.data.State.RemoteAddr.(*net.TCPAddr)
 	if !ok {
-		log.Printf("IB - %s - Mail - Unable to case RemoteAddr: %+v", s, s.State)
+		log.Printf("IB - %s - Mail - Unable to case RemoteAddr: %+v", s, s.data.State)
 		return errors.Errorf("network error (%s)", s)
 	}
 
 	// spf check
 	result, _ := spf.CheckHostWithSender(
 		tcpAddr.IP,
-		s.State.Hostname,
+		s.data.State.Hostname,
 		from,
 	)
 
@@ -88,8 +65,8 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 	if result == spf.Fail {
 		// inc reject metric
-		s.server.publishLogEntry(logger.Entry{
-			ID:        s.ID,
+		s.data.server.publishLogEntry(logger.Entry{
+			ID:        s.data.ID,
 			FromEmail: from,
 			Etype:     logger.EntryTypeReject,
 			Status:    "SPF Fail",
@@ -99,7 +76,7 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 			"%s - Mail - CheckHostWithSender spf.Fail: ip: %s hostname: %s from: %s",
 			s,
 			tcpAddr.IP,
-			s.State.Hostname,
+			s.data.State.Hostname,
 			from,
 		)
 		return errors.Errorf("spf check failed (%s)", s)
@@ -107,14 +84,14 @@ func (s *InboundSession) Mail(from string, opts smtp.MailOptions) error {
 
 	// do we want to provide dbl checks here, i.e. spamhaus?
 
-	s.From = from
+	s.data.From = from
 
 	return nil
 }
 
 func (s *InboundSession) Rcpt(to string) error {
 	// if no domain id then just drop
-	accountID, domainID, err := s.server.domainHandler(to)
+	accountID, domainID, err := s.data.server.domainHandler(to)
 	if err != nil {
 		log.Printf("IB - %s - Rcpt - To: '%s' - domainHandler error: %s", s, to, err)
 		return errors.Errorf("unknown recipient (%s)", s)
@@ -122,7 +99,7 @@ func (s *InboundSession) Rcpt(to string) error {
 
 	// check for return path first as we might
 	// have some sort of catch all
-	oID, returnPath, err := s.server.returnPathHandler(to)
+	oID, returnPath, err := s.data.server.returnPathHandler(to)
 	if err != nil {
 		log.Printf("IB - %s - Rcpt - To: '%s' - returnPathHandler error: %s", s, to, err)
 	}
@@ -131,24 +108,24 @@ func (s *InboundSession) Rcpt(to string) error {
 		log.Printf("IB - %s - Rcpt - To: %s Found return path: %s reset id to %s", s, to, returnPath, oID)
 
 		// overwrite to with returnPath and set returnPath flag
-		s.Via = to
+		s.data.Via = to
 		to = returnPath
-		s.returnPath = true
-		s.ID = oID
+		s.data.returnPath = true
+		s.data.ID = oID
 
 	} else {
 
 		// otherwise check alias
-		aliasID, err := s.server.aliasHandler(to)
+		aliasID, err := s.data.server.aliasHandler(to)
 		if err != nil {
 			log.Printf("IB - %s - Rcpt - To: '%s' - aliasHandler error: %s", s, to, err)
 
 			// inc reject metric
-			s.server.publishLogEntry(logger.Entry{
+			s.data.server.publishLogEntry(logger.Entry{
 				AccountID: accountID,
 				DomainID:  domainID,
 				AliasID:   aliasID,
-				FromEmail: s.From,
+				FromEmail: s.data.From,
 				ViaEmail:  to,
 				Etype:     logger.EntryTypeReject,
 			})
@@ -158,14 +135,14 @@ func (s *InboundSession) Rcpt(to string) error {
 			}
 		}
 
-		s.AliasID = aliasID
+		s.data.AliasID = aliasID
 	}
 
-	s.AccountID = accountID
-	s.DomainID = domainID
-	s.To = to
+	s.data.AccountID = accountID
+	s.data.DomainID = domainID
+	s.data.To = to
 
-	log.Printf("IB - %s - Mail - To: '%s' - AliasID: %d", s, to, s.AliasID)
+	log.Printf("IB - %s - Mail - To: '%s' - AliasID: %d", s, to, s.data.AliasID)
 
 	return nil
 }
@@ -173,29 +150,29 @@ func (s *InboundSession) Rcpt(to string) error {
 func (s *InboundSession) Data(r io.Reader) error {
 	start := time.Now()
 
-	n, err := s.Message.ReadFrom(r)
+	n, err := s.data.Message.ReadFrom(r)
 	if err != nil {
 		log.Printf("IB - %s - Data - ReadFrom: %s", s, err)
 		return errors.Errorf("can not read message (%s)", s)
 	}
 
-	if s.returnPath {
-		if err := s.server.queueEmailHandler(Email{
-			ID:        s.ID,
-			From:      s.From,
-			Via:       s.Via,
-			To:        s.To,
-			Message:   s.Message.Bytes(),
-			AccountID: s.AccountID,
-			DomainID:  s.DomainID,
-			AliasID:   s.AliasID,
+	if s.data.returnPath {
+		if err := s.data.server.queueEmailHandler(Email{
+			ID:        s.data.ID,
+			From:      s.data.From,
+			Via:       s.data.Via,
+			To:        s.data.To,
+			Message:   s.data.Message.Bytes(),
+			AccountID: s.data.AccountID,
+			DomainID:  s.data.DomainID,
+			AliasID:   s.data.AliasID,
 			Bounce:    "Returned",
 		}); err != nil {
 			log.Printf("IB - %s - Data - queueEmailHandler: %s", s, err)
 			return errors.Errorf("unable to forward this message (%s)", s)
 		}
 	} else {
-		if err := s.server.forwardHandler(s); err != nil {
+		if err := s.data.server.forwardHandler(s.data); err != nil {
 			log.Printf("IB - %s - Data - forwardHandler: %s", s, err)
 			return errors.Errorf("unable to forward this message (%s)", s)
 		}
@@ -207,16 +184,16 @@ func (s *InboundSession) Data(r io.Reader) error {
 }
 
 func (s *InboundSession) Reset() {
-	log.Printf("IB - %s - Reset - after %s", s, time.Since(s.start))
-	s.From = ""
-	s.To = ""
-	s.Message.Reset()
-	s.AliasID = 0
-	s.returnPath = false
+	log.Printf("IB - %s - Reset - after %s", s, time.Since(s.data.start))
+	s.data.From = ""
+	s.data.To = ""
+	s.data.Message.Reset()
+	s.data.AliasID = 0
+	s.data.returnPath = false
 }
 
 func (s *InboundSession) Logout() error {
-	if len(s.From) > 0 {
+	if len(s.data.From) > 0 {
 		s.Reset()
 	}
 	log.Printf("IB - %s - Logout", s)

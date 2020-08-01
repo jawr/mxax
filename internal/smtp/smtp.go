@@ -75,7 +75,6 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 	}
 
 	// setup handlers using closures to keep from polluting the server struct
-	var err error
 
 	server.aliasHandler, err = server.makeAliasHandler(db)
 	if err != nil {
@@ -125,7 +124,10 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 	if _, ok := s.nxusernameCache.Get(username); ok {
 		return nil, smtp.ErrAuthUnsupported
 	}
-	cachedPassword, ok := s.usernameCache.Get(password)
+
+	// buffer pool?
+	var cachedPassword []byte
+	cacheGet, ok := s.usernameCache.Get(password)
 
 	if !ok {
 		// look for good user
@@ -137,11 +139,13 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 			username,
 		).Scan(&cachedPassword)
 		if err != nil {
-			s.nxusernameCache.Set(username, struct{}{})
+			s.nxusernameCache.Set(username, struct{}{}, 1)
 			return nil, errors.New("Not authorized")
 		}
 
-		s.usernameCache.Set(username, hashed)
+		s.usernameCache.Set(username, cachedPassword, 1)
+	} else {
+		cachedPassword = cacheGet.([]byte)
 	}
 
 	if err := bcrypt.CompareHashAndPassword(cachedPassword, []byte(password)); err != nil {

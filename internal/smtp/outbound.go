@@ -1,28 +1,19 @@
 package smtp
 
+import (
+	"fmt"
+	"io"
+	"log"
+	"time"
+
+	"github.com/emersion/go-smtp"
+	"github.com/google/uuid"
+	"github.com/jawr/mxax/internal/logger"
+	"github.com/pkg/errors"
+)
+
 type OutboundSession struct {
-	start time.Time
-
-	ID uuid.UUID
-
-	// connection meta data
-	State *smtp.ConnectionState
-
-	ServerName string
-
-	// email
-	From    string
-	Via     string
-	To      string
-	Message bytes.Buffer
-
-	// account details
-	AccountID int
-	DomainID  int
-	AliasID   int
-
-	// reference to the server
-	server *Server
+	data *SessionData
 }
 
 func (s *Server) newOutboundSession(serverName string, state *smtp.ConnectionState) (*OutboundSession, error) {
@@ -32,34 +23,36 @@ func (s *Server) newOutboundSession(serverName string, state *smtp.ConnectionSta
 	}
 
 	session := OutboundSession{
-		ID:         id,
-		start:      time.Now(),
-		ServerName: serverName,
-		State:      state,
-		server:     s,
+		data: &SessionData{
+			ID:         id,
+			start:      time.Now(),
+			ServerName: serverName,
+			State:      state,
+			server:     s,
+		},
 	}
 
 	return &session, nil
 }
 
 func (s *OutboundSession) String() string {
-	return fmt.Sprintf("%s", s.ID)
+	return fmt.Sprintf("%s", s.data.ID)
 }
 
 func (s *OutboundSession) Mail(from string, opts smtp.MailOptions) error {
 	// if no domain id then just drop
-	accountID, domainID, err := s.server.domainHandler(from)
+	accountID, domainID, err := s.data.server.domainHandler(from)
 	if err != nil {
 		log.Printf("OB - %s - Rcpt - From: '%s' - domainHandler error: %s", s, from, err)
 		return errors.Errorf("unknown recipient (%s)", s)
 	}
 
-	aliasID, err := s.server.aliasHandler(from)
+	aliasID, err := s.data.server.aliasHandler(from)
 	if err != nil {
 		log.Printf("OB - %s - Rcpt - From: '%s' - aliasHandler error: %s", s, from, err)
 
 		// inc reject metric
-		s.server.publishLogEntry(logger.Entry{
+		s.data.server.publishLogEntry(logger.Entry{
 			AccountID: accountID,
 			DomainID:  domainID,
 			AliasID:   aliasID,
@@ -72,12 +65,12 @@ func (s *OutboundSession) Mail(from string, opts smtp.MailOptions) error {
 		}
 	}
 
-	s.AliasID = aliasID
-	s.AccountID = accountID
-	s.DomainID = domainID
-	s.From = from
+	s.data.AliasID = aliasID
+	s.data.AccountID = accountID
+	s.data.DomainID = domainID
+	s.data.From = from
 
-	log.Printf("OB - %s - Mail - From: '%s' - AliasID: %d", s, from, s.AliasID)
+	log.Printf("OB - %s - Mail - From: '%s' - AliasID: %d", s, from, s.data.AliasID)
 
 	return nil
 }
@@ -85,7 +78,7 @@ func (s *OutboundSession) Mail(from string, opts smtp.MailOptions) error {
 func (s *OutboundSession) Rcpt(to string) error {
 	log.Printf("OB - %s - Mail - To '%s'", s, to)
 
-	s.To = to
+	s.data.To = to
 
 	return nil
 }
@@ -93,13 +86,13 @@ func (s *OutboundSession) Rcpt(to string) error {
 func (s *OutboundSession) Data(r io.Reader) error {
 	start := time.Now()
 
-	n, err := s.Message.ReadFrom(r)
+	n, err := s.data.Message.ReadFrom(r)
 	if err != nil {
 		log.Printf("OB - %s - Data - ReadFrom: %s", s, err)
 		return errors.Errorf("can not read message (%s)", s)
 	}
 
-	if err := s.server.forwardHandler(s); err != nil {
+	if err := s.data.server.forwardHandler(s.data); err != nil {
 		log.Printf("OB - %s - Data - forwardHandler: %s", s, err)
 		return errors.Errorf("unable to forward this message (%s)", s)
 	}
@@ -110,18 +103,19 @@ func (s *OutboundSession) Data(r io.Reader) error {
 }
 
 func (s *OutboundSession) Reset() {
-	log.Printf("OB - %s - Reset - after %s", s, time.Since(s.start))
-	s.From = ""
-	s.To = ""
-	s.Message.Reset()
-	s.AliasID = 0
+	log.Printf("OB - %s - Reset - after %s", s, time.Since(s.data.start))
+	s.data.From = ""
+	s.data.To = ""
+	s.data.Message.Reset()
+	s.data.AliasID = 0
+	s.data.AccountID = 0
+	s.data.DomainID = 0
 }
 
 func (s *OutboundSession) Logout() error {
-	if len(s.From) > 0 {
+	if len(s.data.From) > 0 {
 		s.Reset()
 	}
 	log.Printf("OB - %s - Logout", s)
 	return nil
 }
-

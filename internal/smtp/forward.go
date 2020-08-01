@@ -21,7 +21,7 @@ import (
 )
 
 // On a successful forward, pass to the handler
-type forwardHandlerFn func(session *InboundSession) error
+type forwardHandlerFn func(session *SessionData) error
 
 // create an inbound handler that handles the DATA hok
 func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
@@ -62,7 +62,7 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 		tls.VersionTLS13: "TLS1.3",
 	}
 
-	return func(session *InboundSession) error {
+	return func(session *SessionData) error {
 
 		// create a received header
 		remoteAddr, ok := session.State.RemoteAddr.(*net.TCPAddr)
@@ -178,7 +178,7 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 				remoteIP,
 				session.ServerName,
 				"ESMTP",
-				session.String(),
+				session.ID.String(),
 				destination.Address,
 				tlsInfo,
 				time.Now().Format("Mon, 02 Jan 2006 15:04:05 -0700 (MST)"),

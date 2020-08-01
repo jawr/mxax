@@ -3,6 +3,7 @@ package smtp
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"log"
 	"os"
 	"sync"
@@ -102,7 +103,21 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 	}
 
 	// setup the underlying smtp server
+
 	server.s = smtp.NewServer(server)
+
+	cert, err := tls.LoadX509KeyPair(
+		"/etc/letsencrypt/live/ehlo.mx.ax/fullchain.pem",
+		"/etc/letsencrypt/live/ehlo.mx.ax/privkey.pem",
+	)
+	if err != nil {
+		return nil, errors.WithMessage(err, "tls.LoadX509KeyPair")
+	}
+
+	server.s.TLSConfig = &tls.Config{
+		ServerName:   "ehlo.mx.ax",
+		Certificates: []tls.Certificate{cert},
+	}
 
 	if len(os.Getenv("MXAX_DEBUG")) > 0 {
 		server.s.Debug = os.Stdout

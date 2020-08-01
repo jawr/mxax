@@ -167,7 +167,7 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 				return errors.WithMessage(err, "unable to seek message")
 			}
 
-			log.Printf("%s - Send to '%s'", session, destination.Address)
+			log.Printf("%s - Send to '%s'", session.ID, destination.Address)
 
 			// break
 

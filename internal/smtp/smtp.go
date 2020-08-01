@@ -112,13 +112,13 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 }
 
 func (s *Server) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
-	// return an OutboundSession
-	return nil, smtp.ErrAuthUnsupported
 	session, err := s.newOutboundSession(s.s.Domain, state)
 	if err != nil {
 		log.Printf("Login; unable to create new OutboundSession: %s", err)
 		return nil, errors.New("temporary error, please try again later")
 	}
+
+	log.Printf("OB - %s - try auth with %s / %s", session, username, password)
 
 	// filter out bad user/pass
 	if _, ok := s.nxusernameCache.Get(username); ok {
@@ -154,7 +154,7 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 		return nil, errors.New("Not authorized")
 	}
 
-	log.Printf("OB %s - init", session)
+	log.Printf("OB - %s - init", session)
 
 	return session, nil
 }
@@ -166,7 +166,7 @@ func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, erro
 		return nil, errors.New("temporary error, please try again later")
 	}
 
-	log.Printf("IB %s - init", session)
+	log.Printf("IB - %s - init", session)
 
 	return session, nil
 }

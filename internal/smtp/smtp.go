@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/dgraph-io/ristretto"
@@ -22,7 +23,11 @@ import (
 // in front, i.e. HaProxy
 type Server struct {
 	db *pgx.Conn
-	s  *smtp.Server
+
+	relay      *smtp.Server
+	submission *smtp.Server
+
+	allowAuth bool
 
 	// handlers
 	aliasHandler      aliasHandlerFn
@@ -102,10 +107,6 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 		return nil, errors.WithMessage(err, "server.makeReturnPathHandler")
 	}
 
-	// setup the underlying smtp server
-
-	server.s = smtp.NewServer(server)
-
 	cert, err := tls.LoadX509KeyPair(
 		"/etc/letsencrypt/live/ehlo.mx.ax/fullchain.pem",
 		"/etc/letsencrypt/live/ehlo.mx.ax/privkey.pem",
@@ -114,20 +115,33 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 		return nil, errors.WithMessage(err, "tls.LoadX509KeyPair")
 	}
 
-	server.s.TLSConfig = &tls.Config{
+	tlsConfig := &tls.Config{
 		ServerName:   "ehlo.mx.ax",
 		Certificates: []tls.Certificate{cert},
 	}
 
+	// setup the underlying smtp servers
+	server.relay = smtp.NewServer(server)
+	server.submission = smtp.NewServer(server)
+	server.submission.Addr = ":submission"
+
+	server.relay.TLSConfig = tlsConfig
+	server.submission.TLSConfig = tlsConfig
+
 	if len(os.Getenv("MXAX_DEBUG")) > 0 {
-		server.s.Debug = os.Stdout
+		server.relay.Debug = os.Stdout
+		server.submission.Debug = os.Stdout
 	}
 
 	return server, nil
 }
 
 func (s *Server) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
-	session, err := s.newOutboundSession(s.s.Domain, state)
+	if !strings.Contains(state.LocalAddr.String(), ":587") {
+		return nil, smtp.ErrAuthRequired
+	}
+
+	session, err := s.newOutboundSession(s.submission.Domain, state)
 	if err != nil {
 		log.Printf("Login; unable to create new OutboundSession: %s", err)
 		return nil, errors.New("temporary error, please try again later")
@@ -175,7 +189,11 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 }
 
 func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, error) {
-	session, err := s.newInboundSession(s.s.Domain, state)
+	if !strings.Contains(state.LocalAddr.String(), ":25") {
+		return nil, smtp.ErrAuthRequired
+	}
+
+	session, err := s.newInboundSession(s.relay.Domain, state)
 	if err != nil {
 		log.Printf("AnonymousLogin; unable to create new InboundSession: %s", err)
 		return nil, errors.New("temporary error, please try again later")

@@ -8,12 +8,17 @@ func (s *Server) Run(domain string, emailSubscriber <-chan amqp.Delivery) error 
 	// TODO
 	// add cancellation
 
-	s.s.Domain = domain
+	s.submission.Domain = domain
+	s.relay.Domain = domain
 
 	errCh := make(chan error, 0)
 
 	go func() {
-		errCh <- s.s.ListenAndServe()
+		errCh <- s.relay.ListenAndServe()
+	}()
+
+	go func() {
+		errCh <- s.submission.ListenAndServe()
 	}()
 
 	go func() {

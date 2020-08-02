@@ -3,7 +3,6 @@ package smtp
 import (
 	"bytes"
 	"context"
-	"crypto"
 	"crypto/tls"
 	"io"
 	"log"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/dgraph-io/ristretto"
-	"github.com/emersion/go-msgauth/dkim"
 	"github.com/jackc/pgx/v4"
 	"github.com/jhillyerd/enmime"
 	"github.com/pkg/errors"
@@ -74,7 +72,19 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 		var rdns string
 		addr, err := net.LookupAddr(remoteIP)
 		if err != nil {
-			return errors.WithMessagef(err, "LookupAddr '%s'", remoteIP)
+			if !strings.Contains(err.Error(), "no such host") {
+				return errors.WithMessagef(err, "LookupAddr '%s'", remoteIP)
+			}
+
+			addressSlice := strings.Split(remoteIP, ".")
+			reverseSlice := []string{}
+
+			for i := range addressSlice {
+				octet := addressSlice[len(addressSlice)-1-i]
+				reverseSlice = append(reverseSlice, octet)
+			}
+
+			rdns = strings.Join(reverseSlice, ".") + ".in-addr.arpa"
 		}
 
 		if len(addr) > 0 {
@@ -202,28 +212,6 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 			// write the actual message
 			if _, err := final.ReadFrom(message); err != nil {
 				return errors.WithMessage(err, "ReadFrom Message")
-			}
-
-			// get dkim and proceed to sign
-			key, err := getDkimPrivateKey(db, dkimKeyCache, domain.ID)
-			if err != nil {
-				return errors.WithMessage(err, "getDkimPrivateKey")
-			}
-
-			// sign the email
-			opts := dkim.SignOptions{
-				Domain:   domain.Name,
-				Selector: "mxax",
-				Signer:   key,
-				Hash:     crypto.SHA256,
-			}
-
-			b := s.bufferPool.Get().(*bytes.Buffer)
-			b.Reset()
-			defer s.bufferPool.Put(b)
-
-			if err := dkim.Sign(b, final, &opts); err != nil {
-				return errors.Wrap(err, "dkim.Sign")
 			}
 
 			err = session.server.queueEmailHandler(Email{

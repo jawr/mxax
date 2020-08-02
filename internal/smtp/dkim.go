@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-type dkimHandlerFn func()
+type dkimSignHandlerFn func()
 
-func (s *Server) makeDkimHandler(db *pgx.Conn) (dkimHandlerFn, error) {
+func (s *Server) makeDkimSignHandler(db *pgx.Conn) (dkimSignHandlerFn, error) {
 	// get dkim and proceed to sign
 	key, err := getDkimPrivateKey(db, dkimKeyCache, domain.ID)
 	if err != nil {

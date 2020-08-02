@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-type returnPathHandlerFn = func(string) (uuid.UUID, string, error)
+type returnPathDetectorFn = func(string) (uuid.UUID, string, error)
 
-func (s *Server) makeReturnPathHandler(db *pgx.Conn) (returnPathHandlerFn, error) {
+func (s *Server) makeReturnPathDetector(db *pgx.Conn) (returnPathDetectorFn, error) {
 	nx, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).

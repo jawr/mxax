@@ -12,12 +12,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-// AliasHandler checks to see if the domain is valid
+// AliasDetector checks to see if the domain is valid
 // and if the domain has any aliases attached that
 // match this email address
-type aliasHandlerFn func(string) (int, error)
+type aliasDetectorFn func(string) (int, error)
 
-func (s *Server) makeAliasHandler(db *pgx.Conn) (aliasHandlerFn, error) {
+func (s *Server) makeAliasDetector(db *pgx.Conn) (aliasDetectorFn, error) {
 
 	nxdomain, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).

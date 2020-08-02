@@ -29,12 +29,15 @@ type Server struct {
 
 	allowAuth bool
 
+	// detectors
+	aliasDetector      aliasDetectorFn
+	domainDetector     domainDetectorFn
+	returnPathDetector returnPathDetectorFn
+
 	// handlers
-	aliasHandler      aliasHandlerFn
-	domainHandler     domainHandlerFn
-	queueEmailHandler queueEmailHandlerFn
 	forwardHandler    forwardHandlerFn
-	returnPathHandler returnPathHandlerFn
+	dkimSignHandler   dkimSignHandlerFn
+	queueEmailHandler queueEmailHandlerFn
 
 	// publishers
 	logPublisher   *rabbitmq.Channel

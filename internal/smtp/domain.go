@@ -12,12 +12,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-// DomainHandler checks to see if the domain is valid
+// DomainDetector checks to see if the domain is valid
 // and if the domain has any domaines attached that
 // match this email address
-type domainHandlerFn func(string) (int, int, error)
+type domainDetectorFn func(string) (int, int, error)
 
-func (s *Server) makeDomainHandler(db *pgx.Conn) (domainHandlerFn, error) {
+func (s *Server) makeDomainDetector(db *pgx.Conn) (domainDetectorFn, error) {
 
 	nxdomain, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).

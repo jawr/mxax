@@ -123,12 +123,6 @@ func (s *Server) makeForwardHandler(db *pgx.Conn) (forwardHandlerFn, error) {
 			returnPath,
 		)
 
-		// TODO
-		// at the moment we are using the from address as our eventual return path
-		// we are also not stripping out any existing return-path headers; dp we want
-		// to set the return to to from if we dont find (and strip) any return-path
-		// header values
-		// also how do we handle this when we have multiple addresses
 		_, err = db.Exec(
 			context.Background(),
 			"INSERT INTO return_paths (id, account_id, alias_id, return_to) VALUES ($1, $2, $3, $4)",

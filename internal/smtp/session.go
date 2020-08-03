@@ -6,12 +6,16 @@ import (
 
 	"github.com/emersion/go-smtp"
 	"github.com/google/uuid"
+	"github.com/jawr/mxax/internal/account"
 )
 
 type SessionData struct {
 	start time.Time
 
 	ID uuid.UUID
+
+	// references server
+	server *Server
 
 	// connection meta data
 	State *smtp.ConnectionState
@@ -24,13 +28,9 @@ type SessionData struct {
 	To      string
 	Message bytes.Buffer
 
-	// account details
-	AccountID int
-	DomainID  int
-	AliasID   int
-
-	// reference to the server
-	server *Server
+	// account structs
+	Domain account.Domain
+	Alias  account.Alias
 
 	// internal flags
 	returnPath bool

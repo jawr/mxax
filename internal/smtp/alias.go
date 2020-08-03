@@ -3,11 +3,8 @@ package smtp
 import (
 	"context"
 	"strings"
-	"time"
 
-	"github.com/dgraph-io/ristretto"
 	"github.com/georgysavva/scany/pgxscan"
-	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/pkg/errors"
 )
@@ -15,82 +12,40 @@ import (
 // AliasDetector checks to see if the domain is valid
 // and if the domain has any aliases attached that
 // match this email address
-type aliasDetectorFn func(string) (int, error)
+func (s *Server) detectAlias(email string) (account.Alias, error) {
+	email = strings.ToLower(email)
 
-func (s *Server) makeAliasDetector(db *pgx.Conn) (aliasDetectorFn, error) {
-
-	nxdomain, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
+	if _, ok := s.cacheGet("alias:nxmatch", email); ok {
+		return account.Alias{}, errors.Errorf("nxmatch cache hit for '%s'", email)
 	}
 
-	nxmatch, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
+	if alias, ok := s.cacheGet("alias:match", email); ok {
+		return alias.(account.Alias), nil
 	}
 
-	matches, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return account.Alias{}, errors.Errorf("bad email: '%s'", email)
 	}
 
-	aliases, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
+	user := parts[0]
+	domain := parts[1]
+
+	// check if this is a bad domain we have checked already
+	if _, ok := s.cacheGet("nxdomain", domain); ok {
+		return account.Alias{}, errors.Errorf("nxdomain cache hit for '%s'", domain)
 	}
 
-	const defaultTTL = time.Minute * 5
+	// search for domain in the database
+	var all []account.Alias
+	cacheAll, ok := s.cacheGet("aliases", domain)
 
-	return func(email string) (int, error) {
-		email = strings.ToLower(email)
-
-		if _, ok := nxmatch.Get(email); ok {
-			return 0, errors.Errorf("nxmatch cache hit for '%s'", email)
-		}
-
-		if aliasID, ok := matches.Get(email); ok {
-			return aliasID.(int), nil
-		}
-
-		parts := strings.Split(email, "@")
-		if len(parts) != 2 {
-			return 0, errors.Errorf("bad email: '%s'", email)
-		}
-
-		user := parts[0]
-		domain := parts[1]
-
-		// check if this is a bad domain we have checked already
-		if _, ok := nxdomain.Get(domain); ok {
-			return 0, errors.Errorf("nxdomain cache hit for '%s'", domain)
-		}
-
-		// search for domain in the database
-		var all []account.Alias
-		cacheAll, ok := aliases.Get(domain)
-
-		if !ok {
-			err := pgxscan.Select(
-				context.Background(),
-				db,
-				&all,
-				`
+	if !ok {
+		err := pgxscan.Select(
+			context.Background(),
+			s.db,
+			&all,
+			`
 				SELECT a.* 
 				FROM aliases AS a 
 					JOIN domains AS d ON a.domain_id = d.id 
@@ -100,34 +55,33 @@ func (s *Server) makeAliasDetector(db *pgx.Conn) (aliasDetectorFn, error) {
 					AND d.verified_at IS NOT NULL
 				ORDER BY LENGTH(a.rule) DESC
 				`,
-				domain,
-			)
-			if err != nil {
-				nxdomain.SetWithTTL(domain, struct{}{}, 1, defaultTTL)
-				return 0, err
-			}
-
-			aliases.SetWithTTL(domain, all, 1, defaultTTL)
-
-		} else {
-			all = cacheAll.([]account.Alias)
+			domain,
+		)
+		if err != nil {
+			s.cacheSet("alias:nxdomain", domain, struct{}{})
+			return account.Alias{}, err
 		}
 
-		// check for matches
-		for _, i := range all {
-			ok, err := i.Check(user)
-			if err != nil {
-				continue
-			}
-			if ok {
-				matches.SetWithTTL(email, i.ID, 1, defaultTTL)
-				return i.ID, nil
-			}
+		s.cacheSet("alias:domain", domain, all)
+
+	} else {
+		all = cacheAll.([]account.Alias)
+	}
+
+	// check for matches
+	for _, i := range all {
+		ok, err := i.Check(user)
+		if err != nil {
+			continue
 		}
+		if ok {
+			s.cacheSet("alias:match", email, i)
+			return i, nil
+		}
+	}
 
-		// no matches found, update nxmatch and return
-		nxmatch.SetWithTTL(email, struct{}{}, 1, defaultTTL)
+	// no matches found, update nxmatch and return
+	s.cacheSet("nxmatch", email, struct{}{})
 
-		return 0, errors.New("nxmatch")
-	}, nil
+	return account.Alias{}, errors.New("nxmatch")
 }

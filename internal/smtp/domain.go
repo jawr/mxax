@@ -3,11 +3,8 @@ package smtp
 import (
 	"context"
 	"strings"
-	"time"
 
-	"github.com/dgraph-io/ristretto"
 	"github.com/georgysavva/scany/pgxscan"
-	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/pkg/errors"
 )
@@ -15,73 +12,47 @@ import (
 // DomainDetector checks to see if the domain is valid
 // and if the domain has any domaines attached that
 // match this email address
-type domainDetectorFn func(string) (int, int, error)
+func (s *Server) detectDomain(email string) (account.Domain, error) {
+	email = strings.ToLower(email)
 
-func (s *Server) makeDomainDetector(db *pgx.Conn) (domainDetectorFn, error) {
-
-	nxdomain, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return account.Domain{}, errors.Errorf("bad email: '%s'", email)
 	}
 
-	domains, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
+	domain := parts[1]
+
+	if e, ok := s.cacheGet("domain", domain); ok {
+		d := e.(account.Domain)
+		return d, nil
 	}
 
-	const defaultTTL = time.Minute * 5
+	// check if this is a bad domain we have checked already
+	if _, ok := s.cacheGet("nxdomain", domain); ok {
+		return account.Domain{}, errors.Errorf("nxdomain cache hit for '%s'", domain)
+	}
 
-	return func(email string) (int, int, error) {
-		email = strings.ToLower(email)
-
-		parts := strings.Split(email, "@")
-		if len(parts) != 2 {
-			return 0, 0, errors.Errorf("bad email: '%s'", email)
-		}
-
-		domain := parts[1]
-
-		if e, ok := domains.Get(domain); ok {
-			d := e.(account.Domain)
-			return d.AccountID, d.ID, nil
-		}
-
-		// check if this is a bad domain we have checked already
-		if _, ok := nxdomain.Get(domain); ok {
-			return 0, 0, errors.Errorf("nxdomain cache hit for '%s'", domain)
-		}
-
-		// search for domain in the database
-		var dom account.Domain
-
-		err := pgxscan.Get(
-			context.Background(),
-			db,
-			&dom,
-			`
+	// search for domain in the database
+	var dom account.Domain
+	err := pgxscan.Get(
+		context.Background(),
+		s.db,
+		&dom,
+		`
 				SELECT * FROM domains
 				WHERE name = $1 
 					AND deleted_at IS NULL 
 					AND verified_at IS NOT NULL
 				LIMIT 1
 				`,
-			domain,
-		)
-		if err != nil {
-			nxdomain.SetWithTTL(domain, struct{}{}, 1, defaultTTL)
-			return 0, 0, err
-		}
+		domain,
+	)
+	if err != nil {
+		s.cacheSet("nxdomain", domain, struct{}{})
+		return account.Domain{}, err
+	}
 
-		domains.SetWithTTL(domain, dom, 1, defaultTTL)
+	s.cacheSet("domain", domain, dom)
 
-		return dom.AccountID, dom.ID, nil
-	}, nil
+	return dom, nil
 }

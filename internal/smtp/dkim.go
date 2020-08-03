@@ -1,37 +1,64 @@
 package smtp
 
 import (
-	"bytes"
+	"context"
 	"crypto"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"io"
 
 	"github.com/emersion/go-msgauth/dkim"
-	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 )
 
-type dkimSignHandlerFn func()
-
-func (s *Server) makeDkimSignHandler(db *pgx.Conn) (dkimSignHandlerFn, error) {
-	// get dkim and proceed to sign
-	key, err := getDkimPrivateKey(db, dkimKeyCache, domain.ID)
+func (s *Server) dkimSignHandler(session *SessionData, reader io.Reader, writer io.Writer) error {
+	key, err := s.getDkimPrivateKey(session.Domain.ID)
 	if err != nil {
 		return errors.WithMessage(err, "getDkimPrivateKey")
 	}
 
-	// sign the email
 	opts := dkim.SignOptions{
-		Domain:   domain.Name,
+		Domain:   session.Domain.Name,
 		Selector: "mxax",
 		Signer:   key,
 		Hash:     crypto.SHA256,
 	}
 
-	b := s.bufferPool.Get().(*bytes.Buffer)
-	b.Reset()
-	defer s.bufferPool.Put(b)
-
-	if err := dkim.Sign(b, final, &opts); err != nil {
+	if err := dkim.Sign(writer, reader, &opts); err != nil {
 		return errors.Wrap(err, "dkim.Sign")
 	}
 
+	return nil
+}
+
+func (s *Server) getDkimPrivateKey(domainID int) (*rsa.PrivateKey, error) {
+	if key, ok := s.cacheGet("dkim", fmt.Sprintf("%d", domainID)); ok {
+		return key.(*rsa.PrivateKey), nil
+	}
+
+	var privateKey []byte
+	err := s.db.QueryRow(
+		context.Background(),
+		"SELECT private_key FROM dkim_keys WHERE domain_id = $1",
+		domainID,
+	).Scan(&privateKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Select")
+	}
+
+	d, _ := pem.Decode(privateKey)
+	if d == nil {
+		return nil, errors.New("pem.Decode")
+	}
+
+	key, err := x509.ParsePKCS1PrivateKey(d.Bytes)
+	if err != nil {
+		return nil, errors.WithMessage(err, "x509.ParsePKCS1PrivateKey")
+	}
+
+	s.cacheSet("dkim", fmt.Sprintf("%d", domainID), key)
+
+	return key, nil
 }

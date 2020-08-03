@@ -40,7 +40,7 @@ func (s *Server) newRelaySession(serverName string, state *smtp.ConnectionState)
 }
 
 func (s *RelaySession) String() string {
-	return fmt.Sprintf("RLY - %s", s.data.ID)
+	return fmt.Sprintf("%s", s.data.ID)
 }
 
 func (s *RelaySession) Mail(from string, opts smtp.MailOptions) error {

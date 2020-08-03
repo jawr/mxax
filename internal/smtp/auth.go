@@ -21,8 +21,6 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 		return nil, errors.New("temporary error, please try again later")
 	}
 
-	log.Printf("OB - %s - try auth with %s / %s", session, username, password)
-
 	// filter out bad user/pass
 	if _, ok := s.cacheGet("login", username); ok {
 		return nil, smtp.ErrAuthUnsupported
@@ -57,8 +55,6 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 		return nil, errors.New("Not authorized")
 	}
 
-	log.Printf("OB - %s - init", session)
-
 	return session, nil
 }
 
@@ -72,8 +68,6 @@ func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, erro
 		log.Printf("AnonymousLogin; unable to create new RelaySession: %s", err)
 		return nil, errors.New("temporary error, please try again later")
 	}
-
-	log.Printf("IB - %s - init", session)
 
 	return session, nil
 }

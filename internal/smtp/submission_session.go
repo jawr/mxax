@@ -37,7 +37,7 @@ func (s *Server) newSubmissionSession(serverName string, state *smtp.ConnectionS
 }
 
 func (s *SubmissionSession) String() string {
-	return fmt.Sprintf("SUB - %s", s.data.ID)
+	return fmt.Sprintf("%s", s.data.ID)
 }
 
 func (s *SubmissionSession) Mail(from string, opts smtp.MailOptions) error {

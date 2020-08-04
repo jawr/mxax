@@ -300,7 +300,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			FROM destinations AS d 
 				JOIN alias_destinations AS ad on ad.destination_id = d.id
 			WHERE 
-				ad.alias_id = $2 
+				ad.alias_id = $1
 				AND d.deleted_at IS NULL
 				AND ad.deleted_at IS NULL
 			ORDER BY d.address

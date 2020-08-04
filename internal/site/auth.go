@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const sessionDuration = time.Second * 600
+const sessionDuration = time.Second * 60000
 
 type session struct {
 	ExpiresAt time.Time

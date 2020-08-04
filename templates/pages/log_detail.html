@@ -1,38 +1,47 @@
 {{define "page"}}
-        <div class="mw9 center br1 mh3 mv3">
-          <div class="w-100 bb b--near-white pa3 cf">
-            <h3 class="f4 ma0 p0 fl">
-              <i class="lni lni-file mr2"></i> 
-              Details
-            </h3>
-          </div>
+<div class="mw9 center br1 mh3 mv3">
+  <div class="w-100 bb b--near-white pa3 cf">
+    <h3 class="f4 ma0 p0 fl">
+      <i class="lni lni-file mr2"></i> 
+      Details
+    </h3>
+  </div>
 
-          <div class="w-100 pa4">
-            <dl class="lh-title pa4 mt0">
-              <dt class="f6 b">From</dt>
-              <dd class="ml0">{{.Entry.FromEmail}}</dd>
-              <dt class="f6 b mt2">Via</dt>
-              <dd class="ml0">{{.Entry.ViaEmail}}</dd>
-              <dt class="f6 b mt2">To</dt>
-              <dd class="ml0">{{.Entry.ToEmail}}</dd>
-              <dt class="f6 b mt2">At</dt>
-              <dd class="ml0">{{.Entry.DateTime}}</dd>
-            </dl>
+  <div class="w-100 pa4">
+    <dl class="lh-title pa4 mt0">
+      <dt class="f6 b">From</dt>
+      <dd class="ml0">{{.Entry.FromEmail}}</dd>
+      <dt class="f6 b mt2">Via</dt>
+      <dd class="ml0">{{.Entry.ViaEmail}}</dd>
+      <dt class="f6 b mt2">To</dt>
+      <dd class="ml0">{{.Entry.ToEmail}}</dd>
+      <dt class="f6 b mt2">At</dt>
+      <dd class="ml0">{{.Entry.DateTime}}</dd>
+    </dl>
 
-            <h4 class="f6">Bounce</h4>
-            <div class="br1 b--light-green bg-near-white">
-              <p class="pre overflow-auto">
-              {{.Entry.Status}}
-              </p>
-            </div>
+    <div class="w-100 bb b--near-white pa3 cf">
+      <h4 class="f5 ma0 p0 fl">
+        Status
+      </h4>
+    </div>
 
-            <h4 class="f6">Message</h4>
-            <div class="br1 b--light-green bg-near-white">
-              <p class="pre overflow-auto">
-              {{.Entry.GetMessage}}
-              </p>
-            </div>
+    <div class="br1 b--light-green bg-near-white">
+      <p class="pre overflow-auto pa3">
+      {{.Entry.Status}}
+      </p>
+    </div>
 
-          </div>
-        </div>
+    <div class="w-100 bb b--near-white pa3 cf">
+      <h4 class="f5 ma0 p0 fl">
+        Message
+      </h4>
+    </div>
+    <div class="br1 b--light-green bg-near-white">
+      <p class="pre overflow-auto pa3">
+      {{.Entry.GetMessage}}
+      </p>
+    </div>
+
+  </div>
+</div>
 {{end}}

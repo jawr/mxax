@@ -2,9 +2,11 @@ package site
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
+	"github.com/jawr/mxax/internal/account"
 	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
@@ -22,10 +24,34 @@ func (s *Site) getDashboard() (*route, error) {
 		return r, err
 	}
 
+	// custom defines
+	type Domain struct {
+		account.Domain
+		Aliases  int
+		CatchAll int
+		Records  int
+		Status   string
+		Expiring bool
+		Expired  bool
+	}
+
+	type Destination struct {
+		account.Destination
+		Aliases int
+		HID     string
+	}
+
 	// definte template data
 	type data struct {
 		Route string
 
+		// domain
+		Domains []Domain
+
+		// destination
+		Destinations []Destination
+
+		// stats
 		Labels        []string
 		InboundSend   []int
 		InboundBounce []int
@@ -39,12 +65,89 @@ func (s *Site) getDashboard() (*route, error) {
 			Route: "dashboard",
 		}
 
-		err := pgxscan.Select(
+		// handle domains
+		if err := pgxscan.Select(
+			req.Context(),
+			tx,
+			&d.Domains,
+			`
+			SELECT 
+				d.*,
+				COALESCE(COUNT(DISTINCT a.id) FILTER (
+					WHERE a.deleted_at IS NULL
+				)) as aliases,
+				COALESCE(COUNT(DISTINCT r.id) FILTER (
+					WHERE r.last_verified_at IS NOT NULL 
+					AND r.deleted_at IS NULL
+					OR r.last_verified_at > NOW() - INTERVAL '24 hours'
+				)) as records,
+				COALESCE(COUNT(DISTINCT a.id) FILTER (WHERE rule = '.*')) as catch_all
+			FROM domains AS d 
+				LEFT JOIN aliases AS a ON d.id = a.domain_id 
+				LEFT JOIN records AS r ON d.id = r.domain_id
+			WHERE 
+				d.deleted_at IS NULL
+			GROUP BY d.id
+			ORDER BY d.name
+			`,
+		); err != nil {
+			return err
+		}
+
+		// setup domain status
+		for idx, dom := range d.Domains {
+			if dom.VerifiedAt.Time.IsZero() {
+				d.Domains[idx].Status = "unverified"
+			} else if dom.Records != 5 {
+				d.Domains[idx].Status = "incomplete"
+			} else {
+				d.Domains[idx].Status = "ready"
+			}
+
+			if time.Until(dom.ExpiresAt.Time) < 0 {
+				d.Domains[idx].Expired = true
+			} else if time.Until(dom.ExpiresAt.Time) < time.Hour*24*30 {
+				d.Domains[idx].Expiring = true
+			}
+		}
+
+		// handle destinations
+		err = pgxscan.Select(
+			req.Context(),
+			tx,
+			&d.Destinations,
+			`
+			SELECT 
+				d.*, 
+				COALESCE(COUNT(ad.*) FILTER (
+					WHERE ad.deleted_at IS NULL
+				), 0) AS aliases
+			FROM destinations AS d
+				LEFT JOIN alias_destinations AS ad ON d.id = ad.destination_id
+			WHERE d.deleted_at IS NULL
+			GROUP BY d.id
+			`,
+		)
+		if err != nil {
+			return err
+		}
+
+		for idx := range d.Destinations {
+			d.Destinations[idx].HID, err = s.idHasher.Encode([]int{
+				d.Destinations[idx].ID,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		// handle stats
+		err = pgxscan.Select(
 			req.Context(),
 			tx,
 			&d.Labels,
 			`
-			SELECT to_char(date_trunc('hour', i), 'HH24:00 DD/MM')  FROM 
+			SELECT date_trunc('hour', i)::text  FROM 
 				generate_series(
 					NOW() - INTERVAL '24 HOURS',
 					NOW(),

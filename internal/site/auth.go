@@ -156,7 +156,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 			var hash []byte
 			err := s.adminDB.QueryRow(
 				req.Context(),
-				"SELECT id, password FROM accounts WHERE username = $1",
+				"SELECT id, password FROM accounts WHERE username = $1 AND verified_at IS NOT NULL",
 				username,
 			).Scan(&accountID, &hash)
 			if err != nil {

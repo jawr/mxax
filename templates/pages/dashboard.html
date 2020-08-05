@@ -21,7 +21,7 @@
         <div class="bg-white shadow-bottom card-radius">
           {{template "domains" .Domains}}
 
-          {{template "add_domain"}}
+          {{template "add_domain" .DomainFormErrors}}
         </div>
       </div>
       <!-- end domain pane -->
@@ -31,7 +31,7 @@
         <div class="bg-white shadow-bottom card-radius">
           {{template "destinations" .Destinations}}
 
-          {{ template "add_destination"}}
+          {{template "add_destination" .DestinationFormErrors}}
         </div>
       </div>
       <!-- end destinations pane -->

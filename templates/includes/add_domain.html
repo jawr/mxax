@@ -1,5 +1,5 @@
 {{define "add_domain"}}
-<div x-data="{ open: false }">
+<div x-data="{ open: {{if .Error}}true{{else}}false{{end}} }">
   <span class="clearfix">
     <span class="float-right text-gray-400 hover:text-gray-900 cursor-pointer leading-6 mt-3 mr-3" @click="open = !open">
       <svg x-show="!open" class="fill-current h-5 mb-2 inline ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M11 9V5H9v4H5v2h4v4h2v-4h4V9h-4zm-1 11a10 10 0 1 1 0-20 10 10 0 0 1 0 20z"/></svg>
@@ -7,19 +7,21 @@
     </span>
   </span>
 
-  <form x-show="open" class="px-8 pt-6 pb-8 mb-4">
+  <form method="POST" x-show="open" class="px-8 pt-6 pb-8 mb-4">
     <p class="mb-4">Adding a Domain involves creating a CNAME record to verify that you own and have control over the Domain. Once verified you will then need to add additional DNS records to authorize us to send and receive mail on your behalf.</p>
     <div class="mb-4">
-      <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
+      <label class="block text-gray-700 text-sm font-bold mb-2" for="domain">
         Domain Name
       </label>
-      <input class="shadow appearance-none border rounded  py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="name" type="text" placeholder="example.com">
+      <input class="shadow appearance-none border rounded  py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="domain" type="text" placeholder="example.com">
     </div>
 
+    {{range .All}}
+    <p class="text-red-500 text-xs italic mb-2">{{.}}</p>
+    {{end}}
+
     <div class="flex items-center justify-between">
-      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="button">
-        Add
-      </button>
+      <input class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit" value="Add" />
     </div>
   </form>
 </div>

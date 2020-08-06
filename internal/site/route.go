@@ -48,6 +48,9 @@ func (s *Site) setupRoutes() error {
 	routes := []routeFn{
 		s.getDashboard,
 		s.getDomain,
+		s.getDeleteDomain,
+		s.getDeleteDestination,
+		s.getDeleteAlias,
 		// logout
 		s.getLogout,
 	}

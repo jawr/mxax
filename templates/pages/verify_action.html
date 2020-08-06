@@ -1,8 +1,15 @@
 {{define "page"}}
-<section class="vh-100 baskerville">
-  <header class="tc ph5 lh-copy">
-    <h1 class="tc f3-l fw1">Confirm</h1>
-    <p class="lh-copy">Please <a href="{{.Next}}?verify=yes" class="link navy">confirm</a> that you want to do this action!</p>
-  </header>
-</section>
+<div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+  <h1 class="heading tracking-wide text-2xl">
+    <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM9 5h2v6H9V5zm0 8h2v2H9v-2z"/></svg>
+    Confirm Action
+  </h1>
+</div>
+
+<div class="overflow-y-scroll h-screen">
+      <div class="max-w-sm mt-20 mx-auto bg-white shadow-md card-radius p-6">
+        <h1 class="heading text-2xl">Confirm</h1>
+        <p>Please <a href="{{.Next}}?verify=yes" class="underline">confirm</a> that you want to perform this action!</p>
+      </div>
+</div>
 {{end}}

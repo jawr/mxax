@@ -1,8 +1,10 @@
 package site
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -148,37 +150,26 @@ func (s *Site) getDomain() (*route, error) {
 
 				} else {
 
-					var aliasID int
-					err = tx.QueryRow(
-						req.Context(),
-						`
-					INSERT INTO aliases (account_id, rule, domain_id)
-					VALUES (current_setting('mxax.current_account_id')::INT, $1, $2)
-					ON CONFLICT (rule, domain_id) DO UPDATE SET deleted_at = NULL
-					RETURNING id
-					`,
-						rule,
-						d.Domain.ID,
-					).Scan(&aliasID)
+					_, err = regexp.Compile(rule)
 					if err != nil {
-						log.Printf("Inserting alias: %s", err)
-						d.AliasFormErrors.Add("", "Unable to create Alias.")
-
+						d.Errors.Add("rule", err.Error())
 					} else {
-						_, err := tx.Exec(
+						err = account.CreateAlias(
 							req.Context(),
-							`
-						INSERT INTO alias_destinations (account_id, alias_id, destination_id)
-						VALUES (current_setting('mxax.current_account_id')::INT, $1, $2)
-						ON CONFLICT (alias_id, destination_id) DO UPDATE SET deleted_at = NULL
-						`,
-							aliasID,
+							tx,
+							rule,
+							d.Domain.ID,
 							destinationID,
 						)
 						if err != nil {
-							log.Printf("Inserting alias_destination: %s", err)
-							d.AliasFormErrors.Add("", "Unable to create Alias Destination.")
-
+							log.Printf("Error creating alias: %s", err)
+							d.Errors.Add(
+								"",
+								fmt.Sprintf(
+									"Unable to attach destination to alias. Please contact support. (%s)",
+									time.Now(),
+								),
+							)
 						}
 					}
 				}
@@ -239,76 +230,6 @@ func (s *Site) getDomain() (*route, error) {
 	return r, nil
 }
 
-// check and see if the associated verify code exists
-func (s *Site) postVerifyDomain() (*route, error) {
-	r := &route{
-		path:    "/domain/verify/:domain",
-		methods: []string{"POST"},
-	}
-
-	// setup templates
-	tmpl, err := s.loadTemplate("templates/pages/verify_domain.html")
-	if err != nil {
-		return r, err
-	}
-
-	// definte template data
-	type data struct {
-		Route  string
-		Errors FormErrors
-		Domain account.Domain
-	}
-
-	// go net.LookupCNAME follows the Canonical chain
-	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		return r, errors.WithMessage(err, "dns.ClientConfigFromFile")
-	}
-
-	// actual handler
-	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
-
-		d := data{
-			Route:  "domains",
-			Errors: newFormErrors(),
-		}
-
-		err := account.GetDomain(
-			req.Context(),
-			tx,
-			&d.Domain,
-			ps.ByName("domain"),
-		)
-		if err != nil {
-			return errors.WithMessage(err, "GetDomain")
-		}
-
-		if err := d.Domain.CheckVerifyCode(dnsConfig); err != nil {
-			d.Errors.Add("", err.Error())
-		}
-
-		if d.Errors.Error() {
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		_, err = tx.Exec(
-			req.Context(),
-			"UPDATE domains SET verified_at = NOW() WHERE id = $1",
-			d.Domain.ID,
-		)
-		if err != nil {
-			return err
-		}
-
-		http.Redirect(w, req, "/domains", http.StatusFound)
-
-		return nil
-	}
-
-	return r, nil
-}
-
 func (s *Site) getDeleteDomain() (*route, error) {
 	r := &route{
 		path:    "/domain/delete/:domain",
@@ -340,7 +261,7 @@ func (s *Site) getDeleteDomain() (*route, error) {
 			return errors.WithMessage(err, "DeleteDomain")
 		}
 
-		http.Redirect(w, req, "/domains", http.StatusFound)
+		http.Redirect(w, req, "/", http.StatusFound)
 
 		return nil
 	})

@@ -71,6 +71,68 @@ func (s *Site) getDashboard() (*route, error) {
 			DestinationFormErrors: newFormErrors(),
 		}
 
+		// handle domain/destination creation
+		if req.Method == "POST" {
+
+			if name := req.FormValue("domain"); len(name) > 0 {
+
+				// get expires at for domain
+				// also acts as an additional layer of
+				// validation, might be too noisey/error prone
+				expiresAt, err := account.GetDomainExpirationDate(name)
+				if err != nil {
+					log.Printf("domain expires at %s", err)
+					d.DomainFormErrors.Add("domain", err.Error())
+				}
+
+				// TODO
+				// what other checks do we want to introduce here
+
+				if !d.DomainFormErrors.Error() {
+
+					err := account.CreateDomain(
+						req.Context(),
+						tx,
+						name,
+						expiresAt,
+					)
+					if err != nil {
+						return errors.WithMessage(err, "CreateDomain")
+					}
+
+					// redirect success to domains page
+					http.Redirect(w, req, "/domain/manage/"+name, http.StatusFound)
+
+					return nil
+				}
+			}
+
+			if address := req.FormValue("address"); len(address) > 0 {
+				if strings.Count(address, "@") != 1 {
+					d.DestinationFormErrors.Add("address", "Does not look like an email address")
+				}
+
+				// TODO
+				// what other checks do we want to introduce here
+
+				if !d.DestinationFormErrors.Error() {
+
+					_, err := tx.Exec(
+						req.Context(),
+						`
+				INSERT INTO destinations (account_id, address) 
+				VALUES (current_setting('mxax.current_account_id')::INT, $1) 
+					ON CONFLICT (account_id, address) DO UPDATE SET deleted_at = NULL
+				`,
+						strings.ToLower(address),
+					)
+					if err != nil {
+						d.DestinationFormErrors.Add("address", "Address already exists")
+					}
+				}
+			}
+		}
+
 		// handle domains
 		if err := pgxscan.Select(
 			req.Context(),
@@ -286,71 +348,6 @@ func (s *Site) getDashboard() (*route, error) {
 		)
 		if err != nil {
 			return errors.Wrap(err, "Select EntryTypeReject")
-		}
-
-		// render
-		if req.Method == "GET" {
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		// handle domain creation
-		if name := req.FormValue("domain"); len(name) > 0 {
-
-			// get expires at for domain
-			// also acts as an additional layer of
-			// validation, might be too noisey/error prone
-			expiresAt, err := account.GetDomainExpirationDate(name)
-			if err != nil {
-				log.Printf("domain expires at %s", err)
-				d.DomainFormErrors.Add("domain", err.Error())
-			}
-
-			// TODO
-			// what other checks do we want to introduce here
-
-			if !d.DomainFormErrors.Error() {
-
-				err := account.CreateDomain(
-					req.Context(),
-					tx,
-					name,
-					expiresAt,
-				)
-				if err != nil {
-					return errors.WithMessage(err, "CreateDomain")
-				}
-
-				// redirect success to domains page
-				http.Redirect(w, req, "/domain/manage/"+name, http.StatusFound)
-
-				return nil
-			}
-		}
-
-		if address := req.FormValue("address"); len(address) > 0 {
-			if strings.Count(address, "@") != 1 {
-				d.DestinationFormErrors.Add("address", "Does not look like an email address")
-			}
-
-			// TODO
-			// what other checks do we want to introduce here
-
-			if !d.DestinationFormErrors.Error() {
-
-				_, err := tx.Exec(
-					req.Context(),
-					`
-				INSERT INTO destinations (account_id, address) 
-				VALUES (current_setting('mxax.current_account_id')::INT, $1) 
-					ON CONFLICT (account_id, address) DO UPDATE SET deleted_at = NULL
-				`,
-					strings.ToLower(address),
-				)
-				if err != nil {
-					d.DestinationFormErrors.Add("address", "Address already exists")
-				}
-			}
 		}
 
 		s.renderTemplate(w, tmpl, r, d)

@@ -25,7 +25,7 @@ func (s *Site) getDomain() (*route, error) {
 	}
 
 	// setup templates
-	verifyTmpl, err := s.loadTemplate("templates/pages/domain.html")
+	tmpl, err := s.loadTemplate("templates/pages/domain.html")
 	if err != nil {
 		return r, err
 	}
@@ -222,7 +222,7 @@ func (s *Site) getDomain() (*route, error) {
 
 		}
 
-		s.renderTemplate(w, verifyTmpl, r, d)
+		s.renderTemplate(w, tmpl, r, d)
 		return nil
 	}
 
@@ -236,7 +236,7 @@ func (s *Site) getDeleteDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.confirmAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		var domain account.Domain
 

@@ -192,7 +192,7 @@ func (s *Site) getDeleteAliasDestination() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.confirmAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		ids := s.idHasher.Decode(ps.ByName("hash"))
 		if len(ids) != 2 {
@@ -261,7 +261,7 @@ func (s *Site) getDeleteAlias() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.confirmAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		ids := s.idHasher.Decode(ps.ByName("hash"))
 		if len(ids) != 1 {

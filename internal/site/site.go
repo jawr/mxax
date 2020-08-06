@@ -24,8 +24,8 @@ type Site struct {
 	router     *httprouter.Router
 	bufferPool sync.Pool
 
-	errorTemplate  *template.Template
-	verifyTemplate *template.Template
+	errorTemplate   *template.Template
+	confirmTemplate *template.Template
 
 	sessionStore *badger.DB
 
@@ -46,12 +46,12 @@ func NewSite(db, adminDB *pgx.Conn) (*Site, error) {
 		return nil, errors.WithMessage(err, "ParseGlob base")
 	}
 
-	verifyTemplate, err := template.ParseFiles("templates/pages/verify_action.html")
+	confirmTemplate, err := template.ParseFiles("templates/pages/confirm.html")
 	if err != nil {
 		return nil, errors.WithMessage(err, "ParseFiles errors/index.html")
 	}
 
-	verifyTemplate, err = verifyTemplate.ParseGlob("templates/base/*.html")
+	confirmTemplate, err = confirmTemplate.ParseGlob("templates/base/*.html")
 	if err != nil {
 		return nil, errors.WithMessage(err, "ParseGlob base")
 	}
@@ -80,10 +80,10 @@ func NewSite(db, adminDB *pgx.Conn) (*Site, error) {
 				return new(bytes.Buffer)
 			},
 		},
-		errorTemplate:  errorTemplate,
-		verifyTemplate: verifyTemplate,
-		sessionStore:   sessionStore,
-		idHasher:       idHasher,
+		errorTemplate:   errorTemplate,
+		confirmTemplate: confirmTemplate,
+		sessionStore:    sessionStore,
+		idHasher:        idHasher,
 	}
 
 	if err := s.setupRoutes(); err != nil {

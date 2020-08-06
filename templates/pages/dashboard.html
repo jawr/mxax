@@ -3,53 +3,51 @@
 {{end}}
 
 {{define "page"}}
-<div class="flex flex-col flex-1 bg-gray-100">
-  <div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
-    <h1 class="heading tracking-wide text-2xl">
-      <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M10 20a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-5.6-4.29a9.95 9.95 0 0 1 11.2 0 8 8 0 1 0-11.2 0zm6.12-7.64l3.02-3.02 1.41 1.41-3.02 3.02a2 2 0 1 1-1.41-1.41z"/></svg>
-      Dashboard
-    </h1>
-  </div>
+<div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+  <h1 class="heading tracking-wide text-2xl">
+    <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M10 20a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-5.6-4.29a9.95 9.95 0 0 1 11.2 0 8 8 0 1 0-11.2 0zm6.12-7.64l3.02-3.02 1.41 1.41-3.02 3.02a2 2 0 1 1-1.41-1.41z"/></svg>
+    Dashboard
+  </h1>
+</div>
 
-  <div class="overflow-y-scroll h-screen">
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4">
+<div class="overflow-y-scroll h-screen">
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4">
 
-      {{template "welcome" .}}
+    {{template "welcome" .}}
 
-      <!-- domains pane -->
-      <div class="col-span-1">
-        <div class="bg-white shadow-bottom card-radius">
-          {{template "domains" .Domains}}
+    <!-- domains pane -->
+    <div class="col-span-1">
+      <div class="bg-white shadow-bottom card-radius">
+        {{template "domains" .Domains}}
 
-          {{template "add_domain" .DomainFormErrors}}
-        </div>
+        {{template "add_domain" .DomainFormErrors}}
       </div>
-      <!-- end domain pane -->
-
-      <!-- destinations pane -->
-      <div class="col-span-1">
-        <div class="bg-white shadow-bottom card-radius">
-          {{template "destinations" .Destinations}}
-
-          {{template "add_destination" .DestinationFormErrors}}
-        </div>
-      </div>
-      <!-- end destinations pane -->
-
-      <!-- stats -->
-      <div class="col-span-1 xl:col-span-2">
-        <div class=" bg-white shadow-bottom card-radius">
-          <div class="bg-gray-200 px-4 py-2 text-left text-sm uppercase">
-            <h2>Overall Stats</h2>
-          </div>
-          <div class="h-auto p-4">
-            <canvas id="activity" class="h-64 object-contain"></canvas>
-          </div>
-        </div>
-      </div>
-      <!-- end stats -->
-
     </div>
+    <!-- end domain pane -->
+
+    <!-- destinations pane -->
+    <div class="col-span-1">
+      <div class="bg-white shadow-bottom card-radius">
+        {{template "destinations" .Destinations}}
+
+        {{template "add_destination" .DestinationFormErrors}}
+      </div>
+    </div>
+    <!-- end destinations pane -->
+
+    <!-- stats -->
+    <div class="col-span-1 xl:col-span-2">
+      <div class=" bg-white shadow-bottom card-radius">
+        <div class="bg-gray-200 px-4 py-2 text-left text-sm uppercase">
+          <h2>Overall Stats</h2>
+        </div>
+        <div class="h-auto p-4">
+          <canvas id="activity" class="h-64 object-contain"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- end stats -->
+
   </div>
 </div>
 {{end}}
@@ -114,6 +112,9 @@
           scaleLabel: {
             display: true,
             labelString: 'Time'
+          },
+          ticks: {
+            beginAtZero: true,
           },
         }],
         yAxes: [{

@@ -262,11 +262,12 @@ func (s *Site) setCookie(w http.ResponseWriter, r *http.Request, accountID int) 
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:  "mxax_session_token",
-		Value: sessionToken.String(),
-		// Secure: true,
-		Path:    "/",
-		Expires: expiresAt,
+		Name:     "mxax_session_token",
+		Value:    sessionToken.String(),
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Path:     "/",
+		Expires:  expiresAt,
 	})
 
 	return nil

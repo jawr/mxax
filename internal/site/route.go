@@ -47,6 +47,7 @@ func (s *Site) setupRoutes() error {
 	// middleware here
 	routes := []routeFn{
 		s.getDashboard,
+		s.getDomain,
 		// logout
 		s.getLogout,
 	}

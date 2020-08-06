@@ -349,11 +349,6 @@ func (s *Site) getDashboard() (*route, error) {
 				)
 				if err != nil {
 					d.DestinationFormErrors.Add("address", "Address already exists")
-
-				} else {
-					// redirect success to addresss page
-					http.Redirect(w, req, "/destinations", http.StatusFound)
-					return nil
 				}
 			}
 		}

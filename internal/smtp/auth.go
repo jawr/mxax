@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (s *Server) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
+func (s *Server) Login(state *smtp.ConnectionState, email, password string) (smtp.Session, error) {
 	if !strings.Contains(state.LocalAddr.String(), ":587") {
 		return nil, smtp.ErrAuthRequired
 	}
@@ -21,10 +21,11 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 		return nil, errors.New("temporary error, please try again later")
 	}
 
-	log.Printf("OB - %s - try auth with %s / %s", session, username, password)
+	log.Printf("%s - try auth with %s / %s", session, email, password)
 
 	// filter out bad user/pass
-	if _, ok := s.cacheGet("login", username); ok {
+	if _, ok := s.cacheGet("login", email); ok {
+		log.Printf("%s - auth failed with %s / %s", session, email, password)
 		return nil, smtp.ErrAuthUnsupported
 	}
 
@@ -37,16 +38,17 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 		err = s.db.QueryRow(
 			context.Background(),
 			`
-			SELECT password FROM accounts WHERE username = $1
+			SELECT password FROM accounts WHERE email = $1
 			`,
-			username,
+			email,
 		).Scan(&cachedPassword)
 		if err != nil {
-			s.cacheSet("login", username, struct{}{})
+			s.cacheSet("login", email, struct{}{})
+			log.Printf("%s - auth failed with %s / %s (%s)", session, email, password, err)
 			return nil, errors.New("Not authorized")
 		}
 
-		s.cacheSet("login", username, cachedPassword)
+		s.cacheSet("login", email, cachedPassword)
 	} else {
 		cachedPassword = cachedGet.([]byte)
 	}
@@ -54,10 +56,11 @@ func (s *Server) Login(state *smtp.ConnectionState, username, password string) (
 	if err := bcrypt.CompareHashAndPassword(cachedPassword, []byte(password)); err != nil {
 		// TODO
 		// fail2ban type
+		log.Printf("%s - auth failed with %s / %s (%s)", session, email, password, err)
 		return nil, errors.New("Not authorized")
 	}
 
-	log.Printf("OB - %s - init", session)
+	log.Printf("%s - init", session)
 
 	return session, nil
 }
@@ -73,7 +76,7 @@ func (s *Server) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, erro
 		return nil, errors.New("temporary error, please try again later")
 	}
 
-	log.Printf("IB - %s - init", session)
+	log.Printf("%s - init", session)
 
 	return session, nil
 }

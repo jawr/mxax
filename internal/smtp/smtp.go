@@ -1,6 +1,7 @@
 package smtp
 
 import (
+	"bytes"
 	"crypto/tls"
 	"os"
 	"sync"
@@ -66,6 +67,11 @@ func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*S
 		logPublisher:   logPublisher,
 		emailPublisher: emailPublisher,
 		cache:          cache,
+		bufferPool: sync.Pool{
+			New: func() interface{} {
+				return new(bytes.Buffer)
+			},
+		},
 	}
 
 	// setup the underlying smtp servers

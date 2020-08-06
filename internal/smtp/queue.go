@@ -36,7 +36,7 @@ func (s *Server) queueEmail(email Email) error {
 		return errors.WithMessage(err, "Publish")
 	}
 
-	log.Printf("%s - Queued", email.ID)
+	log.Printf("=== - %s - Queued", email.ID)
 
 	return nil
 }

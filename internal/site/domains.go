@@ -1,7 +1,6 @@
 package site
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"regexp"
@@ -137,42 +136,42 @@ func (s *Site) getDomain() (*route, error) {
 
 		// if complete get the aliases
 		if d.IsComplete {
-
 			if req.Method == "POST" {
+
 				rule := req.FormValue("rule")
 				destinationID, err := strconv.Atoi(req.FormValue("destination"))
 				if err != nil {
+					// hard fail as smells of malicious intent
 					return errors.WithMessage(err, "Atoi destinationID")
 				}
 
 				if len(rule) == 0 {
 					d.AliasFormErrors.Add("rule", "Must enter a Rule")
+					goto END_POST
 
-				} else {
-
-					_, err = regexp.Compile(rule)
-					if err != nil {
-						d.Errors.Add("rule", err.Error())
-					} else {
-						err = account.CreateAlias(
-							req.Context(),
-							tx,
-							rule,
-							d.Domain.ID,
-							destinationID,
-						)
-						if err != nil {
-							log.Printf("Error creating alias: %s", err)
-							d.Errors.Add(
-								"",
-								fmt.Sprintf(
-									"Unable to attach destination to alias. Please contact support. (%s)",
-									time.Now(),
-								),
-							)
-						}
-					}
 				}
+
+				_, err = regexp.Compile(rule)
+				if err != nil {
+					d.Errors.Add("rule", err.Error())
+					goto END_POST
+				}
+
+				err = account.CreateAlias(
+					req.Context(),
+					tx,
+					rule,
+					d.Domain.ID,
+					destinationID,
+				)
+				if err != nil {
+					log.Printf("Error creating alias: %s", err)
+					d.Errors.Add(
+						"",
+						"Unable to attach destination to alias. Please contact support.",
+					)
+				}
+			END_POST:
 			}
 
 			err := pgxscan.Select(

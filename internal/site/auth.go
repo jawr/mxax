@@ -149,25 +149,25 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 		}
 
 		if req.Method == "POST" {
-			username := req.FormValue("username")
+			email := req.FormValue("email")
 			password := req.FormValue("password")
 
 			var accountID int
 			var hash []byte
 			err := s.adminDB.QueryRow(
 				req.Context(),
-				"SELECT id, password FROM accounts WHERE username = $1 AND verified_at IS NOT NULL",
-				username,
+				"SELECT id, password FROM accounts WHERE email = $1 AND verified_at IS NOT NULL",
+				email,
 			).Scan(&accountID, &hash)
 			if err != nil {
 				log.Printf("SELECT: %s", err)
-				d.Errors.Add("", "Username not found or Password is incorrect")
+				d.Errors.Add("", "Email not found or Password is incorrect")
 				goto FAIL
 			}
 
 			if err := bcrypt.CompareHashAndPassword(hash, []byte(password)); err != nil {
 				log.Printf("Password mismatch: %s", err)
-				d.Errors.Add("", "Username not found or Password is incorrect")
+				d.Errors.Add("", "Email not found or Password is incorrect")
 				goto FAIL
 			}
 
@@ -296,11 +296,11 @@ func (s *Site) getPostRegister() (httprouter.Handle, error) {
 		}
 
 		if req.Method == "POST" {
-			username := req.FormValue("username")
+			email := req.FormValue("email")
 			password := req.FormValue("password")
 			confirmPassword := req.FormValue("confirm-password")
 
-			if !isEmailValid(username) {
+			if !isEmailValid(email) {
 				d.Errors.Add("email", "Address is not valid")
 				goto FAIL
 			}
@@ -308,8 +308,8 @@ func (s *Site) getPostRegister() (httprouter.Handle, error) {
 			var count int
 			err := s.adminDB.QueryRow(
 				req.Context(),
-				"SELECT COUNT(*) FROM accounts WHERE username = $1",
-				username,
+				"SELECT COUNT(*) FROM accounts WHERE email = $1",
+				email,
 			).Scan(&count)
 			if err != nil {
 				s.handleErrorPlain(w, r, err)
@@ -336,10 +336,10 @@ func (s *Site) getPostRegister() (httprouter.Handle, error) {
 			_, err = s.adminDB.Exec(
 				req.Context(),
 				`
-				INSERT INTO accounts (username,password)
+				INSERT INTO accounts (email,password)
 					VALUES ($1,$2)
 				`,
-				username,
+				email,
 				hashed,
 			)
 			if err != nil {

@@ -39,7 +39,7 @@ type Entry struct {
 }
 
 func (e Entry) DateTime() string {
-	return e.Time.Format("2006/01/02 15:04")
+	return e.Time.Format("15:04 01/02/06")
 }
 
 func (e Entry) GetMessage() string {

@@ -1,0 +1,19 @@
+{{define "log_stream"}}
+<div class="w-full">
+  {{range .}}
+  <div class="py-1 border-b border-gray-300 hover:bg-gray-100 cursor-default">
+    <div class="px-2 clearfix">
+      <div class="mt-2 text-gray-400 text-sm heading float-right">{{.DateTime}}</div>
+    </div>
+    <div class="px-2 pb-2">
+      <p class="truncate">{{.FromEmail}}</p>
+      {{if .ViaEmail}}
+      <p class="truncate">{{template "log_entry_status" .}} {{.ViaEmail}}</p>
+      {{end}}
+      <p class="truncate">{{template "log_entry_status" .}} {{.ToEmail}}</p>
+      </p>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}

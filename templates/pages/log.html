@@ -1,49 +1,25 @@
 {{define "page"}}
-<div class="mw9 center br1 mh3 mv3">
-  <div class="w-100 bb b--near-white pa3 cf">
-    <h3 class="f4 ma0 p0 fl">
-      <i class="lni lni-files mr2"></i> 
-      Log
-      <small>WIP</small>
-    </h3>
-  </div>
+<div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+  <h1 class="heading tracking-wide text-2xl">
+    <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12 12l8-8V0H0v4l8 8v8l4-4v-4z"/></svg>
+    Log Stream
+  </h1>
+</div>
 
-  <div class="w-100 pa4">
-    <p class="f5 pb3 lh-copy">An overview of your accounts inbound/outbound activity. Bounces and Failures are recorded here to help identify messages that were undeliverable. If you want to enable additional logging for succesful Inbound/Outbound, please enable statistics.</p>
-
-    <div class="overflow-auto">
-      <table class="f6 w-100 center" cellspacing="0">
-        <thead>
-          <tr>
-            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">From</th>
-            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Via</th>
-            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">To</th>
-            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">At</th>
-            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white">Status</th>
-            <th class="fw6 bb b--black-20 tl pb3 pr3 bg-white w4"></th>
-          </tr>
-        </thead>
-        <tbody class="lh-copy">
-          {{range .Entries}}
-          <tr>
-            <td class="pv3 pr3 bb b--black-20">{{.FromEmail}}</td>
-            <td class="pv3 pr3 bb b--black-20">{{.ViaEmail}}</td>
-            <td class="pv3 pr3 bb b--black-20">{{.ToEmail}}</td>
-            <td class="pv3 pr3 bb b--black-20"><a href="#" title="{{.ID}}" class="link navy">{{.DateTime}}</a></td>
-            <td class="pv3 pr3 bb b--black-20">{{template "log_entry_status" .}}</td>
-            <td class="pv3 pr3 bb b--black-20">
-              {{if eq .Etype 2}}
-              <a class="link navy" title="Details" href="/log/detail/{{.ID}}/{{.EncodeTime}}">
-                <i class="lni lni-search"></i>
-              </a>
-              {{end}}
-            </td>
-          </tr>
-          {{end}}
-        </tbody>
-      </table>
+<div class="overflow-y-scroll h-screen p-5">
+  <div class="w-full md:w-8/12 mx-auto bg-white shadow-md card-radius">
+    <div class="bg-gray-200 px-4 py-2 text-left text-sm uppercase">
+      <h2>Overview</h2>
     </div>
+    <div class="h-auto p-4">
 
+      <p>Check your Accounts inbound/outbound activity.</p>
+      <p>Bounces and Failures are recorded here to help identify messages that were undeliverable.</p>
+      <p>If you want to enable additional logging for succesful Inbound/Outbound, please enable statistics.</p>
+
+      {{template "log_stream" .Entries}}
+
+    </div>
   </div>
 </div>
 {{end}}

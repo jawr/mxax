@@ -17,7 +17,7 @@ type MetaData struct {
 type Account struct {
 	ID int
 
-	Username string
+	Email    string
 	Password []byte
 
 	VerifyCode uuid.UUID

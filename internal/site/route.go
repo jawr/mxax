@@ -51,6 +51,7 @@ func (s *Site) setupRoutes() error {
 		s.getDeleteDomain,
 		s.getDeleteDestination,
 		s.getDeleteAlias,
+		s.getLog,
 		// logout
 		s.getLogout,
 	}

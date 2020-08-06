@@ -55,6 +55,9 @@ func (s *Site) getDashboard() (*route, error) {
 		Destinations          []Destination
 		DestinationFormErrors FormErrors
 
+		// stream
+		Entries []logger.Entry
+
 		// stats
 		Labels        []string
 		InboundSend   []int
@@ -177,6 +180,24 @@ func (s *Site) getDashboard() (*route, error) {
 			} else if time.Until(dom.ExpiresAt.Time) < time.Hour*24*30 {
 				d.Domains[idx].Expiring = true
 			}
+		}
+
+		// get forward entries
+		err = pgxscan.Select(
+			req.Context(),
+			tx,
+			&d.Entries,
+			`
+                SELECT                                                                 
+					*
+                FROM logs
+                WHERE
+                    time > NOW() - INTERVAL '48 HOURS'
+                ORDER BY time DESC
+			`,
+		)
+		if err != nil {
+			return err
 		}
 
 		// handle destinations

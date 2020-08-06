@@ -10,6 +10,7 @@ import (
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
@@ -50,6 +51,9 @@ func (s *Site) getDomain() (*route, error) {
 		Aliases         []Alias
 		AliasFormErrors FormErrors
 		Destinations    []account.Destination
+
+		// stream
+		Entries []logger.Entry
 	}
 
 	// go net.LookupCNAME follows the Canonical chain
@@ -218,6 +222,26 @@ func (s *Site) getDomain() (*route, error) {
 			)
 			if err != nil {
 				return errors.WithMessage(err, "GetDestinations")
+			}
+
+			// get forward entries
+			err = pgxscan.Select(
+				req.Context(),
+				tx,
+				&d.Entries,
+				`
+                SELECT                                                                 
+					*
+                FROM logs
+                WHERE
+                    time > NOW() - INTERVAL '48 HOURS'
+					AND domain_id = $1
+                ORDER BY time DESC
+			`,
+				d.Domain.ID,
+			)
+			if err != nil {
+				return err
 			}
 
 		}

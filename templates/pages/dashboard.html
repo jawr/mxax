@@ -10,7 +10,7 @@
   </h1>
 </div>
 
-<div class="overflow-y-scroll h-screen">
+<div class="overflow-y-auto overflow-x-hidden h-screen">
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4">
 
     {{/* {{template "welcome" .}} */}}
@@ -48,6 +48,20 @@
     </div>
     <!-- end stats -->
 
+  </div>
+</div>
+{{end}}
+
+{{define "stream"}}
+<div class="flex flex-col hidden xl:block xl:w-2/12 bg-white flex-shrink-0">
+  <div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+    <h2 class="heading tracking-wide text-2xl">
+      <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12 12l8-8V0H0v4l8 8v8l4-4v-4z"/></svg>
+      Stream
+    </h2>
+  </div>
+  <div class="overflow-y-scroll h-screen">
+    {{template "log_stream" .Entries}}
   </div>
 </div>
 {{end}}

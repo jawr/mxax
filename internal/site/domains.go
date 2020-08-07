@@ -1,190 +1,20 @@
 package site
 
 import (
-	"fmt"
+	"log"
 	"net/http"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 )
-
-// display overview information about all domains
-func (s *Site) getDomains() (*route, error) {
-	r := &route{
-		path:    "/domains",
-		methods: []string{"GET"},
-	}
-
-	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/domains.html")
-	if err != nil {
-		return r, err
-	}
-
-	// custom defines
-	type Domain struct {
-		account.Domain
-		Aliases  int
-		CatchAll int
-		Records  int
-		Status   string
-		Expiring bool
-		Expired  bool
-	}
-
-	// definte template data
-	type data struct {
-		Route string
-
-		Domains []Domain
-	}
-
-	// actual handler
-	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
-
-		d := data{
-			Route: "domains",
-		}
-
-		if err := pgxscan.Select(
-			req.Context(),
-			tx,
-			&d.Domains,
-			`
-			SELECT 
-				d.*,
-				COALESCE(COUNT(DISTINCT a.id) FILTER (
-					WHERE a.deleted_at IS NULL
-				)) as aliases,
-				COALESCE(COUNT(DISTINCT r.id) FILTER (
-					WHERE r.last_verified_at IS NOT NULL 
-					AND r.deleted_at IS NULL
-					OR r.last_verified_at > NOW() - INTERVAL '24 hours'
-				)) as records,
-				COALESCE(COUNT(DISTINCT a.id) FILTER (WHERE rule = '.*')) as catch_all
-			FROM domains AS d 
-				LEFT JOIN aliases AS a ON d.id = a.domain_id 
-				LEFT JOIN records AS r ON d.id = r.domain_id
-			WHERE 
-				d.deleted_at IS NULL
-			GROUP BY d.id
-			ORDER BY d.name
-			`,
-		); err != nil {
-			return err
-		}
-
-		// setup status
-		for idx, dom := range d.Domains {
-			if dom.VerifiedAt.Time.IsZero() {
-				d.Domains[idx].Status = "unverified"
-			} else if dom.Records != 5 {
-				d.Domains[idx].Status = "incomplete"
-			} else {
-				d.Domains[idx].Status = "ready"
-			}
-
-			if time.Until(dom.ExpiresAt.Time) < 0 {
-				d.Domains[idx].Expired = true
-			} else if time.Until(dom.ExpiresAt.Time) < time.Hour*24*30 {
-				d.Domains[idx].Expiring = true
-			}
-		}
-
-		s.renderTemplate(w, tmpl, r, d)
-
-		return nil
-	}
-
-	return r, nil
-}
-
-// add a domain
-// if there are validation issues it will return
-// the add page and display said errors
-// otherwise it will return to the main domains page
-func (s *Site) getPostAddDomain() (*route, error) {
-	r := &route{
-		path:    "/domains/add",
-		methods: []string{"GET", "POST"},
-	}
-
-	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/add_domain.html")
-	if err != nil {
-		return r, err
-	}
-
-	// definte template data
-	type data struct {
-		Route string
-
-		Name   string
-		Errors FormErrors
-	}
-
-	// actual handler
-	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
-
-		d := data{
-			Route:  "domains",
-			Errors: newFormErrors(),
-		}
-
-		if req.Method == "GET" {
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		name := req.FormValue("domain")
-
-		// validations
-		if len(name) == 0 {
-			d.Errors.Add("domain", "No domain provided")
-		}
-
-		// get expires at for domain
-		// also acts as an additional layer of
-		// validation, might be too noisey/error prone
-		expiresAt, err := account.GetDomainExpirationDate(name)
-		if err != nil {
-			d.Errors.Add("domain", err.Error())
-		}
-
-		// TODO
-		// what other checks do we want to introduce here
-
-		if !d.Errors.Error() {
-
-			err := account.CreateDomain(
-				req.Context(),
-				tx,
-				name,
-				expiresAt,
-			)
-			if err != nil {
-				return errors.WithMessage(err, "CreateDomain")
-			}
-
-			// redirect success to domains page
-			http.Redirect(w, req, "/domain/manage/"+name, http.StatusFound)
-
-			return nil
-		}
-
-		// otherwise display errors
-		s.renderTemplate(w, tmpl, r, d)
-
-		return nil
-	}
-
-	return r, nil
-}
 
 // get specific information about a domain
 // depending on the state will display
@@ -192,11 +22,11 @@ func (s *Site) getPostAddDomain() (*route, error) {
 func (s *Site) getDomain() (*route, error) {
 	r := &route{
 		path:    "/domain/manage/:domain",
-		methods: []string{"GET"},
+		methods: []string{"GET", "POST"},
 	}
 
 	// setup templates
-	verifyTmpl, err := s.loadTemplate("templates/pages/verify_domain.html")
+	tmpl, err := s.loadTemplate("templates/pages/domain.html")
 	if err != nil {
 		return r, err
 	}
@@ -206,18 +36,39 @@ func (s *Site) getDomain() (*route, error) {
 		Records []account.Record
 	}
 
+	type Alias struct {
+		account.Alias
+		Destinations string
+		HID          string
+	}
+
 	// definte template data
 	type data struct {
-		Route      string
-		Domain     Domain
-		IsComplete bool
+		Route           string
+		Domain          Domain
+		IsComplete      bool
+		Errors          FormErrors
+		Aliases         []Alias
+		AliasFormErrors FormErrors
+		Destinations    []account.Destination
+
+		// stream
+		Entries []logger.Entry
+	}
+
+	// go net.LookupCNAME follows the Canonical chain
+	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if err != nil {
+		return r, errors.WithMessage(err, "dns.ClientConfigFromFile")
 	}
 
 	// actual handler
 	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
-			Route: "domains",
+			Route:           "domains",
+			Errors:          newFormErrors(),
+			AliasFormErrors: newFormErrors(),
 		}
 
 		err := account.GetDomain(
@@ -230,179 +81,169 @@ func (s *Site) getDomain() (*route, error) {
 			return errors.WithMessage(err, "GetDomain")
 		}
 
-		err = account.GetRecords(
-			req.Context(),
-			tx,
-			&d.Domain.Records,
-			d.Domain.ID,
-		)
-		if err != nil {
-			return err
-		}
+		if d.Domain.VerifiedAt.Time.IsZero() {
+			if err := d.Domain.CheckVerifyCode(dnsConfig); err != nil {
+				d.Errors.Add("verify", err.Error())
+			} else {
+				// success
+				d.Domain.VerifiedAt.Time = time.Now()
 
-		// check if domain status is complete
-		d.IsComplete = len(d.Domain.Records) == 4
-		if d.IsComplete {
-			for _, rr := range d.Domain.Records {
-				if !rr.IsComplete() {
-					d.IsComplete = false
-					break
+				_, err = tx.Exec(
+					req.Context(),
+					"UPDATE domains SET verified_at = NOW() WHERE id = $1",
+					d.Domain.ID,
+				)
+				if err != nil {
+					return err
 				}
 			}
-		}
 
-		// verify domain
-		if d.Domain.VerifiedAt.Time.IsZero() && !d.IsComplete {
-			s.renderTemplate(w, verifyTmpl, r, d)
-			return nil
-		}
-
-		http.Redirect(w, req, fmt.Sprintf("/domain/check/%s", d.Domain.Name), http.StatusFound)
-		return nil
-	}
-
-	return r, nil
-}
-
-// check and see if the associated verify code exists
-func (s *Site) postVerifyDomain() (*route, error) {
-	r := &route{
-		path:    "/domain/verify/:domain",
-		methods: []string{"POST"},
-	}
-
-	// setup templates
-	tmpl, err := s.loadTemplate("templates/pages/verify_domain.html")
-	if err != nil {
-		return r, err
-	}
-
-	// definte template data
-	type data struct {
-		Route  string
-		Errors FormErrors
-		Domain account.Domain
-	}
-
-	// go net.LookupCNAME follows the Canonical chain
-	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		return r, errors.WithMessage(err, "dns.ClientConfigFromFile")
-	}
-
-	// actual handler
-	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
-
-		d := data{
-			Route:  "domains",
-			Errors: newFormErrors(),
-		}
-
-		err := account.GetDomain(
-			req.Context(),
-			tx,
-			&d.Domain,
-			ps.ByName("domain"),
-		)
-		if err != nil {
-			return errors.WithMessage(err, "GetDomain")
-		}
-
-		if err := d.Domain.CheckVerifyCode(dnsConfig); err != nil {
-			d.Errors.Add("", err.Error())
-		}
-
-		if d.Errors.Error() {
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		_, err = tx.Exec(
-			req.Context(),
-			"UPDATE domains SET verified_at = NOW() WHERE id = $1",
-			d.Domain.ID,
-		)
-		if err != nil {
-			return err
-		}
-
-		http.Redirect(w, req, "/domains", http.StatusFound)
-
-		return nil
-	}
-
-	return r, nil
-}
-
-// check the records associated with a domain exist
-func (s *Site) getCheckDomain() (*route, error) {
-	r := &route{
-		path:    "/domain/check/:domain",
-		methods: []string{"GET"},
-	}
-
-	// setup templates
-	tmpl, err := s.loadTemplate("templates/pages/check_domain.html")
-	if err != nil {
-		return r, err
-	}
-
-	// definte template data
-	type data struct {
-		Route   string
-		Errors  FormErrors
-		Domain  account.Domain
-		Records []account.Record
-	}
-
-	// go net.LookupCNAME follows the Canonical chain
-	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		return r, errors.WithMessage(err, "dns.ClientConfigFromFile")
-	}
-
-	// actual handler
-	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
-
-		d := data{
-			Route:  "domains",
-			Errors: newFormErrors(),
-		}
-
-		err := account.GetDomain(
-			req.Context(),
-			tx,
-			&d.Domain,
-			ps.ByName("domain"),
-		)
-		if err != nil {
-			return errors.WithMessage(err, "GetDomain")
-		}
-
-		err = account.GetRecords(
-			req.Context(),
-			tx,
-			&d.Records,
-			d.Domain.ID,
-		)
-		if err != nil {
-			return err
-		}
-
-		for _, rr := range d.Records {
-			if err := rr.Check(d.Domain.Name, dnsConfig); err != nil {
-				d.Errors.Add(rr.Value, err.Error())
-				continue
-			}
-
-			_, err = tx.Exec(
+		} else {
+			// get records and check them
+			err = account.GetRecords(
 				req.Context(),
-				"UPDATE records SET last_verified_at = NOW() WHERE id = $1",
-				rr.ID,
+				tx,
+				&d.Domain.Records,
+				d.Domain.ID,
 			)
 			if err != nil {
 				return err
 			}
+
+			// check if domain status is complete
+			d.IsComplete = len(d.Domain.Records) == 5
+			if d.IsComplete {
+				for _, rr := range d.Domain.Records {
+					if rr.LastVerifiedAt.Time.IsZero() || time.Since(rr.LastVerifiedAt.Time) > time.Duration(24*time.Hour) {
+						if err := rr.Check(d.Domain.Name, dnsConfig); err != nil {
+							d.Errors.Add(rr.Value, err.Error())
+							d.IsComplete = false
+							continue
+						}
+
+						_, err = tx.Exec(
+							req.Context(),
+							"UPDATE records SET last_verified_at = NOW() WHERE id = $1",
+							rr.ID,
+						)
+						if err != nil {
+							return err
+						}
+
+						if !rr.IsComplete() {
+							d.IsComplete = false
+						}
+					}
+				}
+			}
+		}
+
+		// if complete get the aliases
+		if d.IsComplete {
+			if req.Method == "POST" {
+
+				rule := req.FormValue("rule")
+				destinationID, err := strconv.Atoi(req.FormValue("destination"))
+				if err != nil {
+					// hard fail as smells of malicious intent
+					return errors.WithMessage(err, "Atoi destinationID")
+				}
+
+				if len(rule) == 0 {
+					d.AliasFormErrors.Add("rule", "Must enter a Rule")
+					goto END_POST
+
+				}
+
+				_, err = regexp.Compile(rule)
+				if err != nil {
+					d.Errors.Add("rule", err.Error())
+					goto END_POST
+				}
+
+				err = account.CreateAlias(
+					req.Context(),
+					tx,
+					rule,
+					d.Domain.ID,
+					destinationID,
+				)
+				if err != nil {
+					log.Printf("Error creating alias: %s", err)
+					d.Errors.Add(
+						"",
+						"Unable to attach destination to alias. Please contact support.",
+					)
+				}
+			END_POST:
+			}
+
+			err := pgxscan.Select(
+				req.Context(),
+				tx,
+				&d.Aliases,
+				`
+				SELECT
+					a.*,
+					COALESCE(STRING_AGG(d.address, ', ') FILTER (
+						WHERE d.deleted_at IS NULL AND ad.deleted_at IS NULL
+					), '') AS destinations
+				FROM 
+					aliases AS a
+					JOIN domains AS dom ON a.domain_id = dom.id
+					LEFT JOIN alias_destinations AS ad ON a.id = ad.alias_id
+					LEFT JOIN destinations AS d ON ad.destination_id = d.id
+				WHERE
+					a.deleted_at IS NULL
+					AND d.deleted_at IS NULL
+					AND dom.id = $1
+				GROUP BY a.id, dom.name
+				ORDER BY dom.name, a.rule
+			`,
+				d.Domain.ID,
+			)
+			if err != nil {
+				return err
+			}
+
+			for idx := range d.Aliases {
+				d.Aliases[idx].HID, err = s.idHasher.Encode([]int{
+					d.Aliases[idx].ID,
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			err = account.GetDestinations(
+				req.Context(),
+				tx,
+				&d.Destinations,
+			)
+			if err != nil {
+				return errors.WithMessage(err, "GetDestinations")
+			}
+
+			// get forward entries
+			err = pgxscan.Select(
+				req.Context(),
+				tx,
+				&d.Entries,
+				`
+                SELECT                                                                 
+					*
+                FROM logs
+                WHERE
+                    time > NOW() - INTERVAL '48 HOURS'
+					AND domain_id = $1
+                ORDER BY time DESC
+			`,
+				d.Domain.ID,
+			)
+			if err != nil {
+				return err
+			}
+
 		}
 
 		s.renderTemplate(w, tmpl, r, d)
@@ -419,7 +260,7 @@ func (s *Site) getDeleteDomain() (*route, error) {
 	}
 
 	// actual handler
-	r.h = s.verifyAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
+	r.h = s.confirmAction(func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		var domain account.Domain
 
@@ -443,7 +284,7 @@ func (s *Site) getDeleteDomain() (*route, error) {
 			return errors.WithMessage(err, "DeleteDomain")
 		}
 
-		http.Redirect(w, req, "/domains", http.StatusFound)
+		http.Redirect(w, req, "/", http.StatusFound)
 
 		return nil
 	})

@@ -47,28 +47,12 @@ func (s *Site) setupRoutes() error {
 	// middleware here
 	routes := []routeFn{
 		s.getDashboard,
-		// domains
-		s.getDomains,
 		s.getDomain,
-		s.getPostAddDomain,
-		s.postVerifyDomain,
-		s.getCheckDomain,
 		s.getDeleteDomain,
-		// destinations
-		s.getDestinations,
-		s.getPostCreateDestination,
 		s.getDeleteDestination,
-		// aliases
-		s.getAliases,
-		s.getPostCreateAlias,
-		s.getPostManageAlias,
-		s.getDeleteAliasDestination,
 		s.getDeleteAlias,
-		// log
 		s.getLog,
-		s.getLogDetail,
-		// security
-		s.getSecurity,
+		s.getPostSecurity,
 		// logout
 		s.getLogout,
 	}

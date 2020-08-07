@@ -1,85 +1,151 @@
 {{define "stylesheets"}}
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.css">
 {{end}}
 
 {{define "page"}}
-<div class="mw9 center br1 mh3 mv3">
-  <div class="w-100 bb b--near-white pa3">
-    <h3 class="f4 ma0 p0">
-      <i class="lni lni-home mr2"></i> Dashboard
-    </h3>
-  </div>
+<div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+  <h1 class="heading tracking-wide text-2xl">
+    <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M10 20a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-5.6-4.29a9.95 9.95 0 0 1 11.2 0 8 8 0 1 0-11.2 0zm6.12-7.64l3.02-3.02 1.41 1.41-3.02 3.02a2 2 0 1 1-1.41-1.41z"/></svg>
+    Dashboard
+  </h1>
+</div>
 
-  <div class="w-100 pa4">
-    <div class="h5">
-      <canvas id="activity"></canvas>
+<div class="overflow-y-auto overflow-x-hidden h-screen">
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4">
+
+    {{/* {{template "welcome" .}} */}}
+
+    <!-- domains pane -->
+    <div class="col-span-1">
+      <div class="bg-white shadow-bottom card-radius">
+        {{template "domains" .Domains}}
+
+        {{template "add_domain" .DomainFormErrors}}
+      </div>
     </div>
+    <!-- end domain pane -->
+
+    <!-- destinations pane -->
+    <div class="col-span-1">
+      <div class="bg-white shadow-bottom card-radius">
+        {{template "destinations" .Destinations}}
+
+        {{template "add_destination" .DestinationFormErrors}}
+      </div>
+    </div>
+    <!-- end destinations pane -->
+
+    <!-- stats -->
+    <div class="col-span-1 xl:col-span-2">
+      <div class=" bg-white shadow-bottom card-radius">
+        <div class="bg-gray-200 px-4 py-2 text-left text-sm uppercase">
+          <h2>Overall Stats</h2>
+        </div>
+        <div class="h-auto p-4">
+          <canvas id="activity" class="h-64 object-contain"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- end stats -->
 
   </div>
 </div>
 {{end}}
 
+{{define "stream"}}
+<div class="flex flex-col hidden xl:block xl:w-2/12 bg-white flex-shrink-0">
+  <div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+    <h2 class="heading tracking-wide text-2xl">
+      <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12 12l8-8V0H0v4l8 8v8l4-4v-4z"/></svg>
+      Stream
+    </h2>
+  </div>
+  <div class="overflow-y-scroll h-screen">
+    {{template "log_stream" .Entries}}
+  </div>
+</div>
+{{end}}
+
 {{define "scripts"}}
-    <script>
-      var config = {
-        type: 'line',
-        data: {
-          labels: {{.Labels}},
-          datasets: [
-          {
-            label: 'Send',
-            borderColor: '#357EDD',
-            data: {{.InboundSend}},
-            fill: false,
-          },
-          {
-            label: 'Bounce',
-            borderColor: '#FF6300',
-            data: {{.InboundBounce}},
-            fill: false,
-          },
-          {
-            label: 'Reject',
-            borderColor: '#FF4136',
-            data: {{.InboundReject}},
-            fill: false,
-          },
-          ]
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.min.js"></script>
+<script>
+  var config = {
+    type: 'line',
+    data: {
+      labels: {{.Labels}},
+      datasets: [
+        {
+          label: 'Send',
+          borderColor: '#48BB78',
+          data: {{.InboundSend}},
+          fill: false,
+          dispaly: false,
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          tooltips: {
-            mode: 'index',
-            intersect: false,
+        {
+          label: 'Bounce',
+          borderColor: '#ED8936',
+          data: {{.InboundBounce}},
+          fill: false,
+          dispaly: false,
+        },
+        {
+          label: 'Reject',
+          borderColor: '#F56565',
+          data: {{.InboundReject}},
+          fill: false,
+          dispaly: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      legend: {
+        align: 'end',
+        labels: {
+          fontFamily: "'Nanum Gothic', sans-serif",
+          fontColor: '#2A4365',
+          boxWidth: 10,
+        },
+      },
+      tooltips: {
+        mode: 'index',
+        intersect: false,
+      },
+      hover: {
+        mode: 'nearest',
+        intersect: true
+      },
+      scales: {
+        xAxes: [{
+          type: 'time',
+          time: {
+            unit: 'hour',
           },
-          hover: {
-            mode: 'nearest',
-            intersect: true
+          scaleLabel: {
+            display: true,
+            labelString: 'Time'
           },
-          scales: {
-            xAxes: [{
-              display: true,
-              scaleLabel: {
-                display: true,
-                labelString: 'Time'
-              }
-            }],
-            yAxes: [{
-              display: true,
-              scaleLabel: {
-                display: true,
-                labelString: 'Count'
-              }
-            }]
+          ticks: {
+            beginAtZero: true,
+          },
+        }],
+        yAxes: [{
+          display: true,
+          scaleLabel: {
+            display: true,
+            labelString: 'Count'
           }
-        }
-      };
+        }]
+      }
+    }
+  };
 
-      window.onload = function() {
-        var ctx = document.getElementById('activity').getContext('2d');
-        window.myLine = new Chart(ctx, config);
-      };
+  window.onload = function() {
+    var ctx = document.getElementById('activity').getContext('2d');
+    window.myLine = new Chart(ctx, config);
+  };
 
-    </script>
-    {{end}}
+</script>
+{{end}}

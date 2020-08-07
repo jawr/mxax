@@ -1,0 +1,53 @@
+{{define "add_alias"}}
+<div x-data="{ open: {{if .AliasFormErrors.Error}}true{{else}}false{{end}} }">
+  <span class="clearfix">
+    <span class="float-right text-gray-400 hover:text-gray-900 cursor-pointer leading-6 mt-3 mr-3" @click="open = !open">
+      <svg x-show="!open" class="fill-current h-5 mb-2 inline ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M11 9V5H9v4H5v2h4v4h2v-4h4V9h-4zm-1 11a10 10 0 1 1 0-20 10 10 0 0 1 0 20z"/></svg>
+      <svg x-show="open" class="fill-current h-5 mb-2 inline ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zM11.4 10l2.83-2.83-1.41-1.41L10 8.59 7.17 5.76 5.76 7.17 8.59 10l-2.83 2.83 1.41 1.41L10 11.41l2.83 2.83 1.41-1.41L11.41 10z"/></svg>
+    </span>
+  </span>
+
+  <form method="POST" x-show="open" class="px-8 pt-6 pb-8 mb-4">
+    <p class="mb-4">When an email addressed to your Domain arrives, we check it against your Alias Rules to see if and where we should forward them. Alias Rules are <a href="https://regexr.com/" class="underline" target="_blank">Regular Expressions</a> and can be very powerful. In most cases you can use one of the following:</p>
+
+    <ul class="mb-4">
+      <li class="ml-4">Redirect all emails: <code>.*</code></li>
+      <li class="ml-4">Redirect a combination of emails: <code>(first|second|third)</code></li>
+      <li class="ml-4">Redirect one email: <code>ilovemxax</code></li>
+    </ul>
+
+    <p class="mb-4">Contact us if you have any issues.</p>
+
+    <div class="mb-4">
+      <label class="block text-gray-700 text-sm font-bold mb-2" for="rule">
+        Rule
+      </label>
+      <input class="shadow appearance-none border rounded  py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="rule" type="text" placeholder=".*">
+    </div>
+
+    <div class="mb-4">
+      <label class="block text-gray-700 text-sm font-bold mb-2" for="destination">
+        Destination
+      </label>
+      <div class="inline-block relative w-64">
+        <select class="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline break-words" name="destination">
+          {{range .Destinations}}
+          <option value="{{.ID}}">{{.Address}}</option>
+          {{end}}
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+          <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+        </div>
+      </div>
+    </div>
+
+    {{range .AliasFormErrors.All}}
+    <p class="text-red-500 text-xs italic mb-2">{{.}}</p>
+    {{end}}
+
+    <div class="flex items-center justify-between">
+      <input class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit" value="Add" />
+    </div>
+  </form>
+</div>
+{{end}}

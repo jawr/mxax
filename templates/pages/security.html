@@ -1,51 +1,58 @@
 {{define "page"}}
-<div class="mw9 center br1 mh3 mv3">
-  <div class="w-100 bb b--near-white pa3 cf">
-    <h3 class="f4 ma0 p0 fl">
-      <i class="lni lni-key mr2"></i> 
-      SMTP Security 
-    </h3>
-  </div>
+<div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+  <h1 class="heading tracking-wide text-2xl">
+    <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12.26 11.74L10 14H8v2H6v2l-2 2H0v-4l8.26-8.26a6 6 0 1 1 4 4zm4.86-4.62A3 3 0 0 0 15 2a3 3 0 0 0-2.12.88l4.24 4.24z"/></svg>
+    Security
+  </h1>
+</div>
 
-  <div class="w-100 pa4">
-    <p class="f5 pb3 lh-copy">Change your SMTP Password. Please also enter your Account password for additional security.</p>
-    <p class="f5 pb3 lh-copy">You can send messages using <code>ehlo.mx.ax:587</code> using your mx.ax username.</p>
+<div class="overflow-y-scroll h-screen p-5">
+  <div class="w-full md:w-8/12 mx-auto bg-white shadow-md card-radius">
+    <div class="bg-gray-200 px-4 py-2 text-left text-sm uppercase">
+      <h2>Setup Outbound SMTP</h2>
+    </div>
+    <div class="h-auto p-4 prose">
 
-    {{if .Success}}
-    <p class="lh-copy">Success</p>
+      <p class="leading-normal">Change your SMTP Password. Please also enter your Account password for additional security.</p>
+      <p class="leading-normal">You can send messages using <code>ehlo.mx.ax:587</code> using your mx.ax username.</p>
 
-    {{else}}
-    <form method="post" accept-charset="utf-8">
-      <fieldset class="ba b--transparent ph0 mh0">
+      <div class="py-4 mt-4">
+        {{if .Success}}
+        <p class="leading-normal">Success</p>
 
-        <legend class="ph0 mh0 fw6 clip">Password</legend>
-        <div class="mt3">
-          <label class="db fw4 lh-copy f6" for="password">Account Password</label>
-          <input class="pa2 input-reset ba bg-transparent w-100 measure {{if .Errors.HasError "password"}}b--red red{{end}}" type="password" name="password" />
-        </div>
+        {{else}}
+        <form method="post" accept-charset="utf-8">
+          <div class="mb-4">
+            <label class="heading uppercase block text-gray-700 text-sm mb-2" for="password">
+              Account Password
+            </label>
+            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" name="password" type="password" placeholder="******************">
 
-        <legend class="ph0 mh0 fw6 clip">SMTP Password</legend>
-        <div class="mt3">
-          <label class="db fw4 lh-copy f6" for="smtp-password">SMTP Password</label>
-          <input class="pa2 input-reset ba bg-transparent w-100 measure {{if .Errors.HasError "smtp-password"}}b--red red{{end}}" type="password" name="smtp-password" />
-        </div>
+            <label class="heading uppercase block text-gray-700 text-sm mb-2" for="smtp-password">
+              SMTP Password
+            </label>
+            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" name="smtp-password" type="password" placeholder="******************">
 
-        <legend class="ph0 mh0 fw6 clip">Confirm SMTP Password</legend>
-        <div class="mt3">
-          <label class="db fw4 lh-copy f6" for="confirm-smtp-password">Confirm SMTP Password</label>
-          <input class="pa2 input-reset ba bg-transparent w-100 measure {{if .Errors.HasError "confirm-smtp-password"}}b--red red{{end}}" type="password" name="confirm-smtp-password" />
-        </div>
+            <label class="heading uppercase block text-gray-700 text-sm mb-2" for="confirm-smtp-password">
+              Confirm SMTP Password
+            </label>
+            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" name="confirm-smtp-password" type="password" placeholder="******************">
 
-        {{range .Errors.All}}
-        <p class="red">{{.}}</p>
+            {{range .Errors.All}}
+            <p class="text-red-500 text-xs italic">{{.}}</p>
+            {{end}}
+          </div>
+          <div class="flex items-center justify-between">
+            <input class="cursor-pointer bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit" value="Login" />
+
+            <fieldset class="ba b--transparent ph0 mh0">
+
+        </form>
         {{end}}
+          </div>
 
-        <div class="mt4">
-          <input class="pa2 input-reset dark-green bg-light-green hover-b--dark-green ba b--washed-green br1 pointer f5" type="submit" value="Set" />
-        </div>
-    </form>
-    {{end}}
-
+      </div>
+    </div>
   </div>
 </div>
 {{end}}

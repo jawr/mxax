@@ -1,0 +1,33 @@
+{{define "domains"}}
+<table class="table-fixed w-full border-collapse border-gray-900">
+  <thead>
+    <tr class="text-left bg-gray-200 text-sm uppercase">
+      <th class="w-5/12 md:w-7/12 px-4 py-2 border-bottom">Domain</th>
+      <th class="hidden md:table-cell md:w-2/12 px-4 py-2 border-bottom">Aliases</th>
+      <th class="w-5/12 md:w-2/12 px-4 py-2 border-bottom">Status</th>
+      <th class="w-2/12 md:w-1/12 px-4 py-2 border-bottom"></th>
+    </tr>
+  </thead>
+  <tbody>
+
+    {{range .}}
+    <tr class="hover:bg-gray-100 border-b border-gray-300 py-10">
+      <td class="px-4 py-2 truncate"><a href="/domain/manage/{{.Name}}" class="underline">{{.Name}}</a></td>
+      <td class="hidden md:table-cell px-4 py-2">{{.Aliases}}</td>
+      <td class="px-4 py-2">
+        {{template "domain_status" .}}
+      </td>
+      <td class="px-4 py-2">
+        <a href="#" title="View charts">
+          <svg class="fill-current h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M1 10h3v10H1V10zM6 0h3v20H6V0zm5 8h3v12h-3V8zm5-4h3v16h-3V4z"/></svg>
+        </a>
+        <a href="/domain/delete/{{.Name}}" title="Delete">
+          <svg class="fill-current h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M6 2l2-2h4l2 2h4v2H2V2h4zM3 6h14l-1 14H4L3 6zm5 2v10h1V8H8zm3 0v10h1V8h-1z"/></svg>
+        </a>
+      </td>
+    </tr>
+    {{end}}
+
+  </tbody>
+</table>
+{{end}}

@@ -1,0 +1,28 @@
+{{define "add_destination"}}
+<div x-data="{ open: {{if .Error}}true{{else}}false{{end}} }">
+  <span class="clearfix">
+    <span class="float-right text-gray-400 hover:text-gray-900 cursor-pointer leading-6 mt-3 mr-3" @click="open = !open">
+      <svg x-show="!open" class="fill-current h-5 mb-2 inline ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M11 9V5H9v4H5v2h4v4h2v-4h4V9h-4zm-1 11a10 10 0 1 1 0-20 10 10 0 0 1 0 20z"/></svg>
+      <svg x-show="open" class="fill-current h-5 mb-2 inline ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zM11.4 10l2.83-2.83-1.41-1.41L10 8.59 7.17 5.76 5.76 7.17 8.59 10l-2.83 2.83 1.41 1.41L10 11.41l2.83 2.83 1.41-1.41L11.41 10z"/></svg>
+    </span>
+  </span>
+
+  <form method="POST" x-show="open" class="px-8 pt-6 pb-8 mb-4">
+    <p class="mb-4">A Destination is an email address that you would like to relay email to i.e. the one configured on your phone.</p>
+    <div class="mb-4">
+      <label class="block text-gray-700 text-sm font-bold mb-2" for="address">
+        Email Address
+      </label>
+      <input class="shadow appearance-none border rounded  py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="address" type="text" placeholder="john@gmail.com">
+    </div>
+
+    {{range .All}}
+    <p class="text-red-500 text-xs italic mb-2">{{.}}</p>
+    {{end}}
+
+    <div class="flex items-center justify-between">
+      <input class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit" value="Add" />
+    </div>
+  </form>
+</div>
+{{end}}

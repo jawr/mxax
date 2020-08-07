@@ -1,0 +1,173 @@
+{{define "page"}}
+<div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+  <h1 class="heading tracking-wide text-2xl">
+    <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M10 20a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-5.6-4.29a9.95 9.95 0 0 1 11.2 0 8 8 0 1 0-11.2 0zm6.12-7.64l3.02-3.02 1.41 1.41-3.02 3.02a2 2 0 1 1-1.41-1.41z"/></svg>
+    Domain Overview
+  </h1>
+</div>
+
+<div class="overflow-y-scroll h-screen">
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4">
+    <!-- domain Overview -->
+    <div class="col-span-1">
+      <div>
+        <h1 class="heading uppercase pl-2 pb-2 text-sm">Status</h1>
+      </div>
+
+      <div class=" bg-white shadow-bottom card-radius">
+        <div class="h-auto p-4">
+          <p class="leading-relaxed">
+          {{if not .Domain.VerifiedAt.Time.IsZero}}
+          <span class="text-green-500">
+            <svg class="fill-current h-5 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM6.7 9.29L9 11.6l4.3-4.3 1.4 1.42L9 14.4l-3.7-3.7 1.4-1.42z"/></svg>
+          </span>
+          <b>Ownership Verified</b>
+          You are allowed to send and receive emails using this domain.
+          {{else}}
+          <span class="text-red-500">
+            <svg class="fill-current h-5 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm1.41-1.41A8 8 0 1 0 15.66 4.34 8 8 0 0 0 4.34 15.66zm9.9-8.49L11.41 10l2.83 2.83-1.41 1.41L10 11.41l-2.83 2.83-1.41-1.41L8.59 10 5.76 7.17l1.41-1.41L10 8.59l2.83-2.83 1.41 1.41z"/></svg>
+          </span>
+          <b>Ownership Not Verified</b>
+          You are not yet allowed to send and receive emails using this domain.
+          {{end}}
+          </p>
+
+          <p class="leading-relaxed mt-2">
+          {{if .IsComplete}}
+          <span class="text-green-500">
+            <svg class="fill-current h-5 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM6.7 9.29L9 11.6l4.3-4.3 1.4 1.42L9 14.4l-3.7-3.7 1.4-1.42z"/></svg>
+          </span>
+          <b>Authentication</b>
+          All records required to send and receive emails on your behalf have been set.
+          {{else}}
+          <span class="text-red-500">
+            <svg class="fill-current h-5 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm1.41-1.41A8 8 0 1 0 15.66 4.34 8 8 0 0 0 4.34 15.66zm9.9-8.49L11.41 10l2.83 2.83-1.41 1.41L10 11.41l-2.83 2.83-1.41-1.41L8.59 10 5.76 7.17l1.41-1.41L10 8.59l2.83-2.83 1.41 1.41z"/></svg>
+
+          </span>
+          <b>Authentication</b>
+          You need to ensure that the correct DNS records are set in order for us to send and receive emails on your behalf. <a class="underline" href="#">Click here for help</a>.
+          {{end}}
+          </p>
+
+        </div>
+      </div>    
+    </div>
+
+    {{if .IsComplete}}
+    <div class="col-span-1">
+      <div>
+        <h1 class="uppercase pl-2 pb-2 text-sm heading">Aliases</h1>
+      </div>
+      <div class="bg-white shadow-bottom card-radius">
+        {{template "aliases" .Aliases}}
+        {{template "add_alias" .}}
+      </div>
+    </div>
+    {{end}}
+
+    <!-- verification table -->
+    {{if .Domain.VerifiedAt.Time.IsZero}}
+    <div class="col-span-1 xl:col-span-2">
+      <div>   
+        <h1 class="uppercase pl-2 pb-2 text-sm heading">Verification Records</h1>
+      </div>
+      <table class="table-fixed w-full border-collapse border-gray-900 bg-white">
+        <thead>
+          <tr class="text-left bg-gray-200 text-sm uppercase">
+            <th class="w-2/12 px-4 py-2 border-bottom">Host</th>
+            <th class="w-1/12 px-4 py-2 border-bottom">Type</th>
+            <th class="hidden md:table-cell md:w-7/12 px-4 py-2 border-bottom">Value</th>
+            <th class="w-1/12 px-4 py-2 border-bottom">Status</th>
+            <th class="w-1/12 px-4 py-2 border-bottom"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="hover:bg-gray-100 border-b border-gray-300 py-10">
+            <td class="px-4 py-2 truncate">{{.Domain.VerifyCode}}</td>
+            <td class="px-4 py-2">CNAME</td>
+            <td class="px-4 py-2 truncate">{{.Domain.VerifyCode}}.mx.ax.</td>
+            <td class="px-4 py-2">
+              <span class="text-sm font-medium bg-red-100 py-1 px-2 rounded text-red-500 align-middle">Not Ready</span>
+            </td>
+            <td class="px-4 py-2">
+              <a href="#" title="Copy" class="mxax-copy-record" data-record="{{.Domain.BuildVerifyRecord}}">
+                <svg class="fill-current h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M6 6V2c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4v4a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h4zm2 0h4a2 2 0 0 1 2 2v4h4V2H8v4zM2 8v10h10V8H2z"/></svg>
+              </a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <!-- authentication table -->
+    <div class="col-span-1 xl:col-span-2">
+      <div>
+        <h1 class="uppercase pl-2 pb-2 text-sm heading">Authentication Records</h1>
+      </div>
+      <table class="table-fixed w-full border-collapse border-gray-900 bg-white shadow-bottom">
+        <thead>
+          <tr class="text-left bg-gray-200 text-sm uppercase">
+            <th class="w-2/12 px-4 py-2 border-bottom">Host</th>
+            <th class="w-2/12 px-4 py-2 border-bottom">Type</th>
+            <th class="w-4/12 px-4 py-2 border-bottom">Value</th>
+            <th class="w-2/12 px-4 py-2 border-bottom">Status</th>
+            <th class="w-2/12 px-4 py-2 border-bottom"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Domain.Records}}
+          <tr class="hover:bg-gray-100 border-b border-gray-300 py-10">
+            <td class="px-4 py-2 truncate" title="{{.Host}}">{{.Host}}</td>
+            <td class="px-4 py-2">{{.Rtype}}</td>
+            <td class="px-4 py-2 truncate" title="{{.Value}}">{{.Value}}</td>
+            <td class="px-4 py-2">
+              {{if $.Errors.HasError .Value}}
+              <span class="text-sm font-medium bg-red-100 py-1 px-2 rounded text-red-500 align-middle">{{$.Errors.Field .Value}}</span>
+              {{else}}
+              <span class="text-sm font-medium bg-green-100 py-1 px-2 rounded text-green-500 align-middle">Ready</span>
+              {{end}}
+            </td>
+            <td class="px-4 py-2">
+              <a href="#" title="Copy" class="mxax-copy-record" data-record="{{.String}}">
+                <svg class="fill-current h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M6 6V2c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4v4a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h4zm2 0h4a2 2 0 0 1 2 2v4h4V2H8v4zM2 8v10h10V8H2z"/></svg>
+              </a>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>    
+</div>
+{{end}}
+{{end}}
+
+{{define "stream"}}
+<div class="flex flex-col hidden xl:block xl:w-2/12 bg-white flex-shrink-0">
+  <div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+    <h2 class="heading tracking-wide text-2xl">
+      <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12 12l8-8V0H0v4l8 8v8l4-4v-4z"/></svg>
+      Stream
+    </h2>
+  </div>
+  <div class="overflow-y-scroll h-screen">
+    {{template "log_stream" .Entries}}
+  </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+  var toCopy = Array.from(document.querySelectorAll('.mxax-copy-record')).map(function(el) {
+    el.addEventListener("click", function(ev) {
+      var record = el.getAttribute("data-record");
+      var dummy = document.createElement("textarea");
+      document.body.appendChild(dummy);
+      dummy.value = record;
+      dummy.select();
+      document.execCommand("copy");
+      document.body.removeChild(dummy);
+    });
+  });
+</script>
+{{end}}

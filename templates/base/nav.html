@@ -1,48 +1,36 @@
 {{define "nav"}}
-<section class="fl p2 w-10 pa0 ma0 h-100 fixed bg-light-green">
-  <div class="db w-100 pb0 mb0">
-    <h1 class="tr-l tc dark-green f3-ns f5 ma0 pa3-ns pa2">MX</h1>
+<div @click.away="open = false" x-data="{ open: false }" class="flex flex-col w-full md:w-48 bg-gray-900 flex-shrink-0 shadow-bottom">
+  <div class="flex-shrink-0 px-5 py-4 flex flex-row items-center justify-between">
+    <a href="#" class="text-4xl text-sm uppercase tracking-widest uppercase text-white heading tracking-wide">
+      <img src="/img/logo-light.svg" /> 
+     </a>
+
+    <button @click="open = !open" class="md:hidden focus:outline-none text-white">
+      <svg fill="currentColor" viewBox="0 0 20 20" class="w-6 h-6">
+        <path x-show="!open" fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM9 15a1 1 0 011-1h6a1 1 0 110 2h-6a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+        <path x-show="open" fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+      </svg>
+    </button>
+
   </div>
 
-  <ul class="list pa0 ma0 center tracked f6-l">
-    <li class="tc-m dark-green pointer hover-br-2 b--dark-green {{if eq .Route "dashboard"}}br{{end}}">
-      <a class="fw7 w-100 dib pl3-l pl2 pt3 pb3 no-underline color-inherit" href="/">
-        <i class="lni lni-home mr2"></i> <span class="dn dib-l">Dashboard</span>
-      </a>
-    </li>
-    <li class="tc-m dark-green pointer hover-br-2 b--dark-green {{if eq .Route "domains"}}br{{end}}">
-      <a class="fw7 w-100 dib pl3-l pl2 pt3 pb3 no-underline color-inherit" href="/domains">
-        <i class="lni lni-world mr2"></i> <span class="dn dib-l">Domains</span>
-      </a>
-    </li>
-    <li class="tc-m dark-green pointer hover-br-2 b--dark-green {{if eq .Route "destinations"}}br{{end}}">
-      <a class="fw7 w-100 dib pl3-l pl2 pt3 pb3 no-underline color-inherit" href="/destinations">
-        <i class="lni lni-envelope mr2"></i> <span class="dn dib-l">Destinations</span>
-      </a>
-    </li>
-    <li class="tc-m dark-green pointer hover-br-2 b--dark-green {{if eq .Route "aliases"}}br{{end}}">
-      <a class="fw7 w-100 dib pl3-l pl2 pt3 pb3 no-underline color-inherit" href="/aliases">
-        <i class="lni lni-direction mr2"></i> <span class="dn dib-l">Aliases</span>
-      </a>
-    </li>
-    <li class="tc-m dark-green pointer hover-br-2 b--dark-green {{if eq .Route "log"}}br{{end}}">
-      <a class="fw7 w-100 dib pl3-l pl2 pt3 pb3 no-underline color-inherit" href="/log">
-        <i class="lni lni-files mr2"></i> <span class="dn dib-l">Log</span>
-      </a>
-    </li>
-    <li class="tc-m dark-green pointer hover-br-2 b--dark-green {{if eq .Route "security"}}br{{end}}">
-      <a class="fw7 w-100 dib pl3-l pl2 pt3 pb3 no-underline color-inherit" href="/security">
-        <i class="lni lni-key mr2"></i> <span class="dn dib-l">Security</span>
-      </a>
-    </li>
-    <li class="tc-m dark-green pointer hover-br-2 b--dark-green">
-      <a class="fw7 w-100 dib pl3-l pl2 pt3 pb3 no-underline color-inherit" href="/logout">
-        <i class="lni lni-power-switch mr2"></i> <span class="dn dib-l">Logout</span>
-      </a>
-    </li>
-  </ul>
-</section>
-
-<!-- left pusher -->
-<section class="fl p2 w-10 pa0 ma0 h-100"></section>
+  <nav :class="{'block': open, 'hidden': !open}" class="flex-grow md:block px-3 pb-4 md:pb-0 md:overflow-y-auto">
+    <a class="text-sm uppercase tracking-widest text-gray-200 hover:text-gray-100 block px-4 py-3 heading" href="/">
+      <svg class="fill-current h-4 inline mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M10 20a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-5.6-4.29a9.95 9.95 0 0 1 11.2 0 8 8 0 1 0-11.2 0zm6.12-7.64l3.02-3.02 1.41 1.41-3.02 3.02a2 2 0 1 1-1.41-1.41z"/></svg>
+      Dashboard
+    </a>
+    <a class="text-sm uppercase tracking-widest text-gray-200 hover:text-gray-100 block px-4 py-3 heading" href="/log">
+      <svg class="fill-current h-4 inline mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12 12l8-8V0H0v4l8 8v8l4-4v-4z"/></svg>
+      LoG Stream
+    </a>
+    <a class="text-sm uppercase tracking-widest text-gray-200 hover:text-gray-100 block px-4 py-3 heading" href="/security">
+      <svg class="fill-current h-4 inline mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12.26 11.74L10 14H8v2H6v2l-2 2H0v-4l8.26-8.26a6 6 0 1 1 4 4zm4.86-4.62A3 3 0 0 0 15 2a3 3 0 0 0-2.12.88l4.24 4.24z"/></svg>
+      Security
+    </a>
+    <a class="text-sm uppercase tracking-widest text-gray-200 hover:text-gray-100 block px-4 py-3 heading" href="/logout">
+      <svg class="fill-current h-4 inline mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.16 4.16l1.42 1.42A6.99 6.99 0 0 0 10 18a7 7 0 0 0 4.42-12.42l1.42-1.42a9 9 0 1 1-11.69 0zM9 0h2v8H9V0z"/></svg>
+      Logout
+    </a>
+  </nav>
+</div>
 {{end}}

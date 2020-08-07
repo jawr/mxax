@@ -1,21 +1,21 @@
 {{define "domain_status"}}
 
 {{if eq .Status "ready"}}
-<span class="br1 f7 tc pv1 ph2 ba b--green green b">Ready</span>
+    <span class="text-sm font-medium bg-green-100 py-1 px-2 rounded text-green-500 align-middle">Ready</span>
 {{else if eq .Status "unverified"}}
-<span class="br1 f7 tc pv1 ph2 ba b--red red b">Unverified</span>
+    <span class="text-sm font-medium bg-red-100 py-1 px-2 rounded text-red-500 align-middle">Unverified</span>
 {{else if eq .Status "incomplete"}}
-<span class="br1 f7 tc pv1 ph2 ba b--orange orange b">Incomplete</span>
+    <span class="text-sm font-medium bg-orange-100 py-1 px-2 rounded text-orange-500 align-middle">Incomplete</span>
 {{else}}
-<span class="br1 f7 tc pv1 ph2 ba b--gray gray b">Unnown</span>
+    <span class="text-sm font-medium bg-gray-100 py-1 px-2 rounded text-gray-500 align-middle">Unknown</span>
 {{end}}
 
 {{if .Expiring}}
-<span class="br1 f7 tc pv1 ph2 ba b--orange orange b">Expiring</span>
+    <span class="text-sm font-medium bg-orange-100 py-1 px-2 rounded text-orange-500 align-middle">Expiring</span>
 {{end}}
 
 {{if .Expired}}
-<span class="br1 f7 tc pv1 ph2 ba b--red red b">Expired</span>
+    <span class="text-sm font-medium bg-red-100 py-1 px-2 rounded text-red-500 align-middle">Expired</span>
 {{end}}
 
 {{end}}

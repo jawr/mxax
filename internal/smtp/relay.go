@@ -114,7 +114,7 @@ func (s *Server) relay(session *SessionData) error {
 			return errors.WithMessage(err, "unable to seek message")
 		}
 
-		log.Printf("%s - Send to '%s'", session.ID, destination.Address)
+		log.Printf("RLY - %s - Send to %d '%s'", session.ID, destination.ID, destination.Address)
 
 		final := s.bufferPool.Get().(*bytes.Buffer)
 		final.Reset()

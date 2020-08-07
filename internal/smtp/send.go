@@ -39,7 +39,7 @@ func (s *Server) handleEmails(emailSubscriber <-chan amqp.Delivery) error {
 		}
 
 		if err := s.sendEmail(email); err != nil {
-			log.Printf("%s - Bounced (%s -> %s -> %s) [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), err)
+			log.Printf("=== - %s - Bounced (%s -> %s -> %s) [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), err)
 			email.Bounce = err.Error()
 		}
 
@@ -59,7 +59,7 @@ func (s *Server) handleEmails(emailSubscriber <-chan amqp.Delivery) error {
 			})
 
 		} else {
-			log.Printf("%s - Sent (%s -> %s -> %s) [%s]", email.ID, email.From, email.Via, email.To, time.Since(start))
+			log.Printf("=== - %s - Sent (%s -> %s -> %s) [%s]", email.ID, email.From, email.Via, email.To, time.Since(start))
 			s.publishLogEntry(logger.Entry{
 				ID:            email.ID,
 				AccountID:     email.AccountID,

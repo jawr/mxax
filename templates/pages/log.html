@@ -13,9 +13,11 @@
     </div>
     <div class="h-auto p-4">
 
+      <div class="prose w-full">
       <p>Check your Accounts inbound/outbound activity.</p>
       <p>Bounces and Failures are recorded here to help identify messages that were undeliverable.</p>
       <p>If you want to enable additional logging for succesful Inbound/Outbound, please enable statistics.</p>
+      </div>
 
       {{template "log_stream" .Entries}}
 

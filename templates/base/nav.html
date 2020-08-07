@@ -1,7 +1,9 @@
 {{define "nav"}}
 <div @click.away="open = false" x-data="{ open: false }" class="flex flex-col w-full md:w-48 bg-gray-900 flex-shrink-0 shadow-bottom">
   <div class="flex-shrink-0 px-5 py-4 flex flex-row items-center justify-between">
-    <a href="#" class="text-4xl text-sm uppercase tracking-widest uppercase text-white heading tracking-wide">MX/AX</a>
+    <a href="#" class="text-4xl text-sm uppercase tracking-widest uppercase text-white heading tracking-wide">
+      <img src="/img/logo-light.svg" /> 
+     </a>
 
     <button @click="open = !open" class="md:hidden focus:outline-none text-white">
       <svg fill="currentColor" viewBox="0 0 20 20" class="w-6 h-6">

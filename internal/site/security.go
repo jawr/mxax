@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (s *Site) getSecurity() (*route, error) {
+func (s *Site) getPostSecurity() (*route, error) {
 	r := &route{
 		path:    "/security",
 		methods: []string{"GET", "POST"},

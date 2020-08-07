@@ -85,7 +85,7 @@ func (s *Site) getDashboard() (*route, error) {
 				expiresAt, err := account.GetDomainExpirationDate(name)
 				if err != nil {
 					log.Printf("domain expires at %s", err)
-					d.DomainFormErrors.Add("domain", err.Error())
+					// d.DomainFormErrors.Add("domain", err.Error())
 				}
 
 				// TODO
@@ -175,10 +175,12 @@ func (s *Site) getDashboard() (*route, error) {
 				d.Domains[idx].Status = "ready"
 			}
 
-			if time.Until(dom.ExpiresAt.Time) < 0 {
-				d.Domains[idx].Expired = true
-			} else if time.Until(dom.ExpiresAt.Time) < time.Hour*24*30 {
-				d.Domains[idx].Expiring = true
+			if !dom.ExpiresAt.Time.IsZero() {
+				if time.Until(dom.ExpiresAt.Time) < 0 {
+					d.Domains[idx].Expired = true
+				} else if time.Until(dom.ExpiresAt.Time) < time.Hour*24*30 {
+					d.Domains[idx].Expiring = true
+				}
 			}
 		}
 

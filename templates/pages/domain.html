@@ -1,3 +1,7 @@
+{{define "stylesheets"}}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.css">
+{{end}}
+
 {{define "page"}}
 <div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
   <h1 class="heading tracking-wide text-2xl">
@@ -15,7 +19,7 @@
       </div>
 
       <div class=" bg-white shadow-bottom card-radius">
-        <div class="h-auto p-4">
+        <div class="h-auto p-4 prose">
           <p class="leading-relaxed">
           {{if not .Domain.VerifiedAt.Time.IsZero}}
           <span class="text-green-500">
@@ -137,6 +141,20 @@
         </tbody>
       </table>
     </div>
+
+    <!-- stats -->
+    <div class="col-span-1 xl:col-span-2">
+      <div class=" bg-white shadow-bottom card-radius">
+        <div class="bg-gray-200 px-4 py-2 text-left text-sm uppercase">
+          <h2>Overall Stats</h2>
+        </div>
+        <div class="h-auto p-4">
+          <canvas id="activity" class="h-64 object-contain"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- end stats -->
+
   </div>    
 </div>
 {{end}}
@@ -169,5 +187,86 @@
       document.body.removeChild(dummy);
     });
   });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.min.js"></script>
+<script>
+  var config = {
+    type: 'line',
+    data: {
+      labels: {{.Labels}},
+      datasets: [
+        {
+          label: 'Send',
+          borderColor: '#48BB78',
+          data: {{.InboundSend}},
+          fill: false,
+          dispaly: false,
+        },
+        {
+          label: 'Bounce',
+          borderColor: '#ED8936',
+          data: {{.InboundBounce}},
+          fill: false,
+          dispaly: false,
+        },
+        {
+          label: 'Reject',
+          borderColor: '#F56565',
+          data: {{.InboundReject}},
+          fill: false,
+          dispaly: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      legend: {
+        align: 'end',
+        labels: {
+          fontFamily: "'Nanum Gothic', sans-serif",
+          fontColor: '#2A4365',
+          boxWidth: 10,
+        },
+      },
+      tooltips: {
+        mode: 'index',
+        intersect: false,
+      },
+      hover: {
+        mode: 'nearest',
+        intersect: true
+      },
+      scales: {
+        xAxes: [{
+          type: 'time',
+          time: {
+            unit: 'hour',
+          },
+          scaleLabel: {
+            display: true,
+            labelString: 'Time'
+          },
+          ticks: {
+            beginAtZero: true,
+          },
+        }],
+        yAxes: [{
+          display: true,
+          scaleLabel: {
+            display: true,
+            labelString: 'Count'
+          }
+        }]
+      }
+    }
+  };
+
+  window.onload = function() {
+    var ctx = document.getElementById('activity').getContext('2d');
+    window.myLine = new Chart(ctx, config);
+  };
+
 </script>
 {{end}}

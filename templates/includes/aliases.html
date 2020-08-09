@@ -11,7 +11,7 @@
 
     {{range .}}
     <tr class="hover:bg-gray-100 border-b border-gray-300 py-10">
-      <td class="px-4 py-2 truncate">{{.Rule}}</td>
+      <td class="px-4 py-2 truncate"><a href="/alias/manage/{{.HID}}" class="underline">{{.Rule}}</a></td>
       <td class="px-4 py-2 truncate">{{.Destinations}}</td>
       <td class="px-4 py-2">
         <a href="#" title="View charts">

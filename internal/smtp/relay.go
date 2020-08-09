@@ -206,7 +206,14 @@ func (s *Server) getDestinations(aliasID int) ([]account.Destination, error) {
 		context.Background(),
 		s.db,
 		&destinations,
-		"SELECT d.* FROM destinations AS d JOIN alias_destinations AS ad ON d.id = ad.destination_id WHERE ad.alias_id = $1",
+		`
+		SELECT d.* 
+		FROM destinations AS d 
+		JOIN alias_destinations AS ad ON d.id = ad.destination_id 
+		WHERE ad.alias_id = $1
+		AND ad.deleted_at IS NULL
+		AND d.deleted_at IS NULL
+		`,
 		aliasID,
 	)
 	if err != nil {

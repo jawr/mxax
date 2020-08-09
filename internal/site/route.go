@@ -53,6 +53,8 @@ func (s *Site) setupRoutes() error {
 		s.getDeleteAlias,
 		s.getLog,
 		s.getPostSecurity,
+		s.getPostManageAlias,
+		s.getDeleteAliasDestination,
 		// logout
 		s.getLogout,
 	}

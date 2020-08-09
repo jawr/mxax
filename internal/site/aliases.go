@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/account"
+	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )
@@ -21,14 +21,15 @@ func (s *Site) getPostManageAlias() (*route, error) {
 	}
 
 	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/manage_alias.html")
+	tmpl, err := s.loadTemplate("templates/pages/alias.html")
 	if err != nil {
 		return r, err
 	}
 
 	type Destination struct {
 		account.Destination
-		HID string
+		Aliases int
+		HID     string
 	}
 
 	// definte template data
@@ -41,6 +42,15 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		ExistingDestinations []Destination
 
 		Errors FormErrors
+
+		// stream
+		Entries []logger.Entry
+
+		// stats
+		Labels        []string
+		InboundSend   []int
+		InboundBounce []int
+		InboundReject []int
 	}
 
 	// actual handler
@@ -69,6 +79,41 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			return errors.WithMessage(err, "GetAlias")
 		}
 
+		// once we have the alias we can do some work with it
+		if req.Method == "POST" {
+
+			destinationID, err := strconv.Atoi(req.FormValue("destination"))
+			if err != nil {
+				return errors.WithMessage(err, "Atoi destination")
+			}
+
+			// validate that destination belongs to this account
+			var destination account.Destination
+			err = account.GetDestinationByID(
+				req.Context(),
+				tx,
+				&destination,
+				destinationID,
+			)
+			if err != nil {
+				return errors.WithMessage(err, "Validate Destination")
+			}
+
+			err = account.CreateAliasDestination(
+				req.Context(),
+				tx,
+				d.Alias.ID,
+				destinationID,
+			)
+			if err != nil {
+				log.Printf("Error inserting alias_destination (%d,%d): %s", aliasID, destinationID, err)
+				d.Errors.Add(
+					"",
+					"Unable to attach destination to alias. Please contact support",
+				)
+			}
+		}
+
 		// get domain
 		err = account.GetDomainByID(
 			req.Context(),
@@ -84,7 +129,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 		err = pgxscan.Select(
 			req.Context(),
 			tx,
-			&d.ExistingDestinations,
+			&d.Destinations,
 			`
 			SELECT * 
 			FROM destinations AS d 
@@ -111,24 +156,27 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			tx,
 			&d.ExistingDestinations,
 			`
-			SELECT d.* 
-			FROM destinations AS d 
-				JOIN alias_destinations AS ad on ad.destination_id = d.id
-			WHERE 
-				ad.alias_id = $1
-				AND d.deleted_at IS NULL
-				AND ad.deleted_at IS NULL
-			ORDER BY d.address
+			SELECT 
+				d.*, 
+				COALESCE(COUNT(ad.*) FILTER (
+					WHERE ad.deleted_at IS NULL
+				), 0) AS aliases
+			FROM destinations AS d
+				JOIN alias_destinations AS ad ON d.id = ad.destination_id
+			WHERE d.deleted_at IS NULL
+			AND ad.deleted_at IS NULL
+			AND ad.alias_id = $1
+			GROUP BY d.id
 			`,
 			d.Alias.ID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Select destinations")
+			return err
 		}
 
 		for idx := range d.ExistingDestinations {
 			d.ExistingDestinations[idx].HID, err = s.idHasher.Encode([]int{
-				aliasID,
+				d.Alias.ID,
 				d.ExistingDestinations[idx].ID,
 			})
 			if err != nil {
@@ -136,48 +184,174 @@ func (s *Site) getPostManageAlias() (*route, error) {
 			}
 		}
 
-		if req.Method == "GET" {
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
-		}
-
-		destinationID, err := strconv.Atoi(req.FormValue("destination"))
-		if err != nil {
-			return errors.WithMessage(err, "Atoi destination")
-		}
-
-		// validate that destination belongs to this account
-		var destination account.Destination
-		err = account.GetDestinationByID(
+		// get forward entries
+		err = pgxscan.Select(
 			req.Context(),
 			tx,
-			&destination,
-			destinationID,
+			&d.Entries,
+			`
+                SELECT                                                                 
+					*
+                FROM logs
+                WHERE
+                    time > NOW() - INTERVAL '48 HOURS'
+					AND alias_id = $1
+                ORDER BY time DESC
+			`,
+			aliasID,
 		)
 		if err != nil {
-			return errors.WithMessage(err, "Validate Destination")
+			return err
 		}
 
-		err = account.CreateAliasDestination(
+		// handle stats
+		err = pgxscan.Select(
 			req.Context(),
 			tx,
-			d.Alias.ID,
-			destinationID,
+			&d.Labels,
+			`
+			SELECT date_trunc('hour', i)::text  FROM 
+				generate_series(
+					NOW() - INTERVAL '24 HOURS',
+					NOW(),
+					INTERVAL '1 HOUR'
+			) AS t(i)
+			`,
 		)
 		if err != nil {
-			log.Printf("Error inserting alias_destination (%d,%d): %s", aliasID, destinationID, err)
-			d.Errors.Add(
-				"",
-				fmt.Sprintf(
-					"Unable to attach destination to alias. Please contact support. (%s)",
-					time.Now(),
-				),
+			return errors.WithMessage(err, "Select Labels")
+		}
+
+		err = pgxscan.Select(
+			req.Context(),
+			tx,
+			&d.InboundSend,
+			`
+			WITH series AS (
+				SELECT date_trunc(
+					'hour',
+					generate_series(
+						NOW() - INTERVAL '24 HOURS',
+						NOW(),
+						INTERVAL '1 HOUR'
+					)
+				) AS hour
+			), metrics AS (
+				SELECT
+					date_trunc('hour', l.time) AS hour,
+					COUNT(l.*) AS cnt
+				FROM logs AS l
+					JOIN domains AS d ON l.domain_id = d.id
+				WHERE
+					time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $1
+					AND l.alias_id = $2
+				GROUP BY 1
+				ORDER BY 1
 			)
-			s.renderTemplate(w, tmpl, r, d)
-			return nil
+			SELECT
+				COALESCE(SUM(metrics.cnt), 0)
+				
+			FROM series
+				LEFT JOIN metrics ON series.hour = metrics.hour
+
+			GROUP BY series.hour
+			ORDER BY series.hour
+			`,
+			logger.EntryTypeSend,
+			aliasID,
+		)
+		if err != nil {
+			return errors.Wrap(err, "Select EntryTypeSend")
 		}
 
-		http.Redirect(w, req, "/aliases", http.StatusFound)
+		err = pgxscan.Select(
+			req.Context(),
+			tx,
+			&d.InboundBounce,
+			`
+			WITH series AS (
+				SELECT date_trunc(
+					'hour',
+					generate_series(
+						NOW() - INTERVAL '24 HOURS',
+						NOW(),
+						INTERVAL '1 HOUR'
+					)
+				) AS hour
+			), metrics AS (
+				SELECT
+					date_trunc('hour', l.time) AS hour,
+					COUNT(l.*) AS cnt
+				FROM logs AS l
+					JOIN domains AS d ON l.domain_id = d.id
+				WHERE
+					time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $1
+					AND l.alias_id = $2
+				GROUP BY 1
+				ORDER BY 1
+			)
+			SELECT
+				COALESCE(SUM(metrics.cnt), 0)
+				
+			FROM series
+				LEFT JOIN metrics ON series.hour = metrics.hour
+
+			GROUP BY series.hour
+			ORDER BY series.hour
+			`,
+			logger.EntryTypeBounce,
+			aliasID,
+		)
+		if err != nil {
+			return errors.Wrap(err, "Select EntryTypeBounce")
+		}
+
+		err = pgxscan.Select(
+			req.Context(),
+			tx,
+			&d.InboundReject,
+			`
+			WITH series AS (
+				SELECT date_trunc(
+					'hour',
+					generate_series(
+						NOW() - INTERVAL '24 HOURS',
+						NOW(),
+						INTERVAL '1 HOUR'
+					)
+				) AS hour
+			), metrics AS (
+				SELECT
+					date_trunc('hour', l.time) AS hour,
+					COUNT(l.*) AS cnt
+				FROM logs AS l
+					JOIN domains AS d ON l.domain_id = d.id
+				WHERE
+					time > NOW() - INTERVAL '24 HOURS'
+					AND l.etype = $1
+					AND l.alias_id = $2
+				GROUP BY 1
+				ORDER BY 1
+			)
+			SELECT
+				COALESCE(SUM(metrics.cnt), 0)
+				
+			FROM series
+				LEFT JOIN metrics ON series.hour = metrics.hour
+
+			GROUP BY series.hour
+			ORDER BY series.hour
+			`,
+			logger.EntryTypeReject,
+			aliasID,
+		)
+		if err != nil {
+			return errors.Wrap(err, "Select EntryTypeReject")
+		}
+
+		s.renderTemplate(w, tmpl, r, d)
 
 		return nil
 	}

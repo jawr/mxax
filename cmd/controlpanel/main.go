@@ -6,10 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/controlpanel"
-	"github.com/jawr/mxax/internal/transactional"
 	"github.com/pkg/errors"
 )
 
@@ -39,25 +37,7 @@ func run() error {
 
 	log.Println("Connected to the Admin Database")
 
-	// setup rabbitmq connection
-	rabbitConn, err := rabbitmq.Dial(os.Getenv("MXAX_MQ_URL"))
-	if err != nil {
-		return errors.WithMessage(err, "rabbitmq.Dial")
-	}
-	defer rabbitConn.Close()
-
-	// setup logs publisher
-	emailPublisher, err := createPublisher(rabbitConn, "transactional")
-	if err != nil {
-		return errors.WithMessage(err, "createPublisher transactional")
-	}
-	defer emailPublisher.Close()
-
-	log.Println("Connected to the MQ")
-
-	transactionalPublisher := transactional.NewPublisher(emailPublisher)
-
-	server, err := controlpanel.NewSite(db, adminDB, transactionalPublisher)
+	server, err := controlpanel.NewSite(db, adminDB)
 	if err != nil {
 		return errors.WithMessage(err, "NewSite")
 	}
@@ -69,27 +49,4 @@ func run() error {
 	}
 
 	return nil
-}
-
-func createPublisher(conn *rabbitmq.Connection, queueName string) (*rabbitmq.Channel, error) {
-	ch, err := conn.Channel()
-	if err != nil {
-		return nil, errors.WithMessage(err, "subscriber.Channel")
-	}
-
-	if len(queueName) > 0 {
-		_, err = ch.QueueDeclare(
-			queueName,
-			true,  // durable
-			false, // autoDelete
-			false, // exclusive
-			false, // noWait
-			nil,
-		)
-		if err != nil {
-			return nil, errors.WithMessage(err, "QueueDeclare")
-		}
-	}
-
-	return ch, nil
 }

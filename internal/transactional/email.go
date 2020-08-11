@@ -5,7 +5,6 @@ import "net/mail"
 type Email struct {
 	To mail.Address
 
-	Subject   string
-	PlainText []byte
-	HTML      []byte
+	Subject string
+	HTML    []byte
 }

@@ -1,12 +1,23 @@
 package site
 
 import (
+	"bytes"
+	"crypto"
+	"encoding/json"
+	"html/template"
 	"net"
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/emersion/go-msgauth/dkim"
+	"github.com/google/uuid"
+	"github.com/jawr/mxax/internal/smtp"
+	"github.com/jhillyerd/enmime"
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
+	"github.com/streadway/amqp"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,7 +33,13 @@ func (s *Site) getPostRegister() (*route, error) {
 
 	tmpl, err := s.loadTemplate("templates/pages/register.html")
 	if err != nil {
-		return nil, err
+		return r, err
+	}
+
+	// email templates
+	emailTmpl, err := template.ParseFiles("templates/emails/verify_email.html")
+	if err != nil {
+		return r, err
 	}
 
 	r.h = func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
@@ -31,11 +48,16 @@ func (s *Site) getPostRegister() (*route, error) {
 		}
 
 		if req.Method == "POST" {
-			if err := s.registerUser(req, &d.Form); err != nil {
+			code, err := s.registerUser(req, &d.Form)
+			if err != nil {
 				return err
 			}
 
 			if !d.Form.Error() {
+				if err := s.queueVerifyEmail(req.FormValue("email"), code, emailTmpl); err != nil {
+					return err
+				}
+
 				http.Redirect(w, req, "/thankyou", http.StatusFound)
 				return nil
 			}
@@ -47,14 +69,110 @@ func (s *Site) getPostRegister() (*route, error) {
 	return r, nil
 }
 
-func (s *Site) registerUser(req *http.Request, form *Form) error {
+func (s *Site) queueVerifyEmail(address, code string, tmpl *template.Template) error {
+
+	data := struct {
+		Code    string
+		Address string
+	}{
+		Code:    code,
+		Address: address,
+	}
+
+	b := s.bufferPool.Get().(*bytes.Buffer)
+	defer s.bufferPool.Put(b)
+	b.Reset()
+
+	if err := tmpl.ExecuteTemplate(b, "verify_email", &data); err != nil {
+		return err
+	}
+
+	message, err := enmime.Builder().
+		From("Do Not Reply", "noreply@mx.ax").
+		Subject("MX - Please verify your email address").
+		HTML(b.Bytes()).
+		To(address, address).
+		Build()
+	if err != nil {
+		return err
+	}
+
+	b.Reset()
+
+	if err := message.Encode(b); err != nil {
+		return err
+	}
+
+	signed := s.bufferPool.Get().(*bytes.Buffer)
+	defer s.bufferPool.Put(signed)
+	signed.Reset()
+
+	opts := dkim.SignOptions{
+		Domain:   "mx.ax",
+		Selector: "mxax",
+		Signer:   s.dkimKey,
+		Hash:     crypto.SHA256,
+	}
+
+	if err := dkim.Sign(signed, b, &opts); err != nil {
+		return err
+	}
+
+	id, err := uuid.Parse(code)
+	if err != nil {
+		return err
+	}
+
+	err = s.queueEmail(smtp.Email{
+		ID:      id,
+		From:    "noreply@mx.ax",
+		To:      address,
+		Message: signed.Bytes(),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Site) queueEmail(email smtp.Email) error {
+	b := s.bufferPool.Get().(*bytes.Buffer)
+	defer s.bufferPool.Put(b)
+	b.Reset()
+
+	if err := json.NewEncoder(b).Encode(&email); err != nil {
+		return errors.WithMessage(err, "Encode")
+	}
+
+	msg := amqp.Publishing{
+		Timestamp:   time.Now(),
+		ContentType: "application/json",
+		Body:        b.Bytes(),
+	}
+
+	err := s.emailPublisher.Publish(
+		"",
+		"emails",
+		false, // mandatory
+		false, // immediate
+		msg,
+	)
+	if err != nil {
+		return errors.WithMessage(err, "Publish")
+	}
+
+	return nil
+}
+
+func (s *Site) registerUser(req *http.Request, form *Form) (string, error) {
 	email := req.FormValue("email")
 	password := req.FormValue("password")
 	confirmPassword := req.FormValue("confirm-password")
 
 	if !isEmailValid(email) {
 		form.AddError("email", "Address is not valid")
-		return nil
+		return "", nil
 	}
 
 	var count int
@@ -64,42 +182,41 @@ func (s *Site) registerUser(req *http.Request, form *Form) error {
 		email,
 	).Scan(&count)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if count > 0 {
 		form.AddError("email", "Address has already registered.")
-		return nil
+		return "", nil
 	}
 
 	if password != confirmPassword {
 		form.AddError("password", "")
 		form.AddError("confirm-password", "Does not match")
-		return nil
+		return "", nil
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	_, err = s.db.Exec(
+	var code string
+	err = s.db.QueryRow(
 		req.Context(),
 		`
 				INSERT INTO accounts (email,password)
 					VALUES ($1,$2)
+					RETURNING verify_code
 				`,
 		email,
 		hashed,
-	)
+	).Scan(&code)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// TODO
-	// fire transactional email
-
-	return nil
+	return code, nil
 }
 
 var emailRegex = regexp.MustCompile(

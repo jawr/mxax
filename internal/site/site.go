@@ -11,6 +11,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
+	"github.com/jawr/mxax/internal/transactional"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 	"github.com/speps/go-hashids"
@@ -24,6 +25,8 @@ type Site struct {
 	router     *httprouter.Router
 	bufferPool sync.Pool
 
+	emailPublisher *transactional.Publisher
+
 	errorTemplate   *template.Template
 	confirmTemplate *template.Template
 
@@ -34,7 +37,7 @@ type Site struct {
 
 // eventually if we want to do lots of testing we might want
 // to swap out db for a bunch of interfaces for each route
-func NewSite(db, adminDB *pgx.Conn) (*Site, error) {
+func NewSite(db, adminDB *pgx.Conn, emailPublisher *transactional.Publisher) (*Site, error) {
 	// errorTemplate
 	errorTemplate, err := template.ParseFiles("templates/errors/index.html")
 	if err != nil {
@@ -73,8 +76,9 @@ func NewSite(db, adminDB *pgx.Conn) (*Site, error) {
 	}
 
 	s := &Site{
-		db:      db,
-		adminDB: adminDB,
+		db:             db,
+		adminDB:        adminDB,
+		emailPublisher: emailPublisher,
 		bufferPool: sync.Pool{
 			New: func() interface{} {
 				return new(bytes.Buffer)

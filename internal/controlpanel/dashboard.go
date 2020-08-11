@@ -21,7 +21,7 @@ func (s *Site) getDashboard() (*route, error) {
 	}
 
 	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/dashboard.html")
+	tmpl, err := s.loadTemplate("templates/controlpanel/dashboard.html")
 	if err != nil {
 		return r, err
 	}

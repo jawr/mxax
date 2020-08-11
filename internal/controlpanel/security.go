@@ -17,7 +17,7 @@ func (s *Site) getPostSecurity() (*route, error) {
 	}
 
 	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/security.html")
+	tmpl, err := s.loadTemplate("templates/controlpanel/security.html")
 	if err != nil {
 		return r, err
 	}

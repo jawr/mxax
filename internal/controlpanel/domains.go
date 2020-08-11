@@ -26,7 +26,7 @@ func (s *Site) getDomain() (*route, error) {
 	}
 
 	// setup templates
-	tmpl, err := s.loadTemplate("templates/pages/domain.html")
+	tmpl, err := s.loadTemplate("templates/controlpanel/domain.html")
 	if err != nil {
 		return r, err
 	}

@@ -21,7 +21,7 @@ func (s *Site) getPostManageAlias() (*route, error) {
 	}
 
 	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/alias.html")
+	tmpl, err := s.loadTemplate("templates/controlpanel/alias.html")
 	if err != nil {
 		return r, err
 	}

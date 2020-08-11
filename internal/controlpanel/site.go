@@ -49,7 +49,7 @@ func NewSite(db, adminDB *pgx.Conn, emailPublisher *transactional.Publisher) (*S
 		return nil, errors.WithMessage(err, "ParseGlob base")
 	}
 
-	confirmTemplate, err := template.ParseFiles("templates/pages/confirm.html")
+	confirmTemplate, err := template.ParseFiles("templates/controlpanel/confirm.html")
 	if err != nil {
 		return nil, errors.WithMessage(err, "ParseFiles errors/index.html")
 	}

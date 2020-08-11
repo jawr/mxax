@@ -17,7 +17,7 @@ func (s *Site) getLog() (*route, error) {
 	}
 
 	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/log.html")
+	tmpl, err := s.loadTemplate("templates/controlpanel/log.html")
 	if err != nil {
 		return r, err
 	}
@@ -69,7 +69,7 @@ func (s *Site) getLogDetail() (*route, error) {
 	}
 
 	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/log_detail.html")
+	tmpl, err := s.loadTemplate("templates/controlpanel/log_detail.html")
 	if err != nil {
 		return r, err
 	}

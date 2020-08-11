@@ -8,7 +8,7 @@ import (
 
 func (s *Site) getThankyou() (*route, error) {
 	r := &route{
-		path:    "/thankyou",
+		path:    "/thankyou/:for",
 		methods: []string{"GET"},
 	}
 
@@ -17,8 +17,23 @@ func (s *Site) getThankyou() (*route, error) {
 		return nil, err
 	}
 
+	type data struct {
+		Message string
+	}
+
 	r.h = func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
-		return s.renderTemplate(w, tmpl, r, struct{}{})
+		var d data
+
+		switch ps.ByName("for") {
+		case "register":
+			d.Message = "You should receive a verification email shortly."
+		case "contact":
+			d.Message = "We will get back to you soon!"
+		default:
+			d.Message = "For being you. <3."
+		}
+
+		return s.renderTemplate(w, tmpl, r, &d)
 	}
 
 	return r, nil

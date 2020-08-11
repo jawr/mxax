@@ -40,6 +40,7 @@ func (s *Site) setupRoutes() error {
 		s.getLander,
 		s.getPostRegister,
 		s.getThankyou,
+		s.getPostContact,
 		s.getVerify,
 	}
 

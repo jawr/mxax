@@ -7,8 +7,10 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"net/http"
+	"os"
 	"sync"
 
+	"github.com/dpapathanasiou/go-recaptcha"
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
@@ -23,6 +25,8 @@ type Site struct {
 	emailPublisher *rabbitmq.Channel
 
 	dkimKey *rsa.PrivateKey
+
+	recaptchaPublicKey string
 }
 
 func NewSite(db *pgx.Conn, emailPublisher *rabbitmq.Channel) (*Site, error) {
@@ -33,8 +37,11 @@ func NewSite(db *pgx.Conn, emailPublisher *rabbitmq.Channel) (*Site, error) {
 				return new(bytes.Buffer)
 			},
 		},
-		emailPublisher: emailPublisher,
+		emailPublisher:     emailPublisher,
+		recaptchaPublicKey: os.Getenv("MXAX_RECAPTCHA_PUBLIC_KEY"),
 	}
+
+	recaptcha.Init(os.Getenv("MXAX_RECAPTCHA_PRIVATE_KEY"))
 
 	var privateKey []byte
 	err := db.QueryRow(

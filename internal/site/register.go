@@ -58,7 +58,7 @@ func (s *Site) getPostRegister() (*route, error) {
 					return err
 				}
 
-				http.Redirect(w, req, "/thankyou", http.StatusFound)
+				http.Redirect(w, req, "/thankyou/register", http.StatusFound)
 				return nil
 			}
 		}

@@ -62,7 +62,7 @@ func run() error {
 		return errors.WithMessage(err, "NewSite")
 	}
 
-	listenAddr := os.Getenv("MXAX_LISTEN_ADDR")
+	listenAddr := os.Getenv("MXAX_CONTROLPANEL_LISTEN_ADDR")
 	log.Printf("Listening on http://%s", listenAddr)
 	if err := server.Run(listenAddr); err != nil {
 		return errors.WithMessage(err, "Run")

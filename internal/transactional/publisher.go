@@ -45,7 +45,7 @@ func (p *Publisher) Add(email Email) error {
 		Body:        b.Bytes(),
 	}
 
-	err := s.logPublisher.Publish(
+	err := p.ch.Publish(
 		"",
 		"transactional",
 		false, // mandatory

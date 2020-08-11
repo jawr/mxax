@@ -1,4 +1,4 @@
-package site
+package controlpanel
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/jawr/mxax/internal/site/funcs"
+	"github.com/jawr/mxax/internal/controlpanel/funcs"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )
@@ -17,7 +17,7 @@ func (s *Site) renderTemplate(w http.ResponseWriter, t *template.Template, r *ro
 
 	b.Reset()
 
-	if err := t.ExecuteTemplate(b, "base", d); err != nil {
+	if err := t.ExecuteTemplate(b, "controlpanel", d); err != nil {
 		s.handleError(w, r, err)
 		return
 	}

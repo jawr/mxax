@@ -1,4 +1,4 @@
-package site
+package controlpanel
 
 import (
 	"fmt"

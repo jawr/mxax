@@ -1,4 +1,4 @@
-package site
+package controlpanel
 
 type FormErrors struct {
 	m map[string]string

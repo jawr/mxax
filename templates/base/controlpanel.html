@@ -1,4 +1,4 @@
-{{define "base"}}
+{{define "controlpanel"}}
 <!DOCTYPE html>
 <html lang="en">
   <title>{{block "title" .}}MX{{end}}</title>
@@ -24,7 +24,7 @@
     <div class="flex flex-col md:flex-row min-h-screen w-full">
 
       <!-- nav -->
-      {{template "nav" .}}
+      {{template "controlpanel_nav" .}}
 
       <!-- page -->
       <div class="flex flex-col flex-1 bg-gray-100">

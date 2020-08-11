@@ -8,7 +8,7 @@ import (
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
-	"github.com/jawr/mxax/internal/site"
+	"github.com/jawr/mxax/internal/controlpanel"
 	"github.com/jawr/mxax/internal/transactional"
 	"github.com/pkg/errors"
 )
@@ -57,7 +57,7 @@ func run() error {
 
 	transactionalPublisher := transactional.NewPublisher(emailPublisher)
 
-	server, err := site.NewSite(db, adminDB, transactionalPublisher)
+	server, err := controlpanel.NewSite(db, adminDB, transactionalPublisher)
 	if err != nil {
 		return errors.WithMessage(err, "NewSite")
 	}

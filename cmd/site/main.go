@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/site"
 	"github.com/pkg/errors"
 )
@@ -17,7 +19,17 @@ func main() {
 }
 
 func run() error {
-	server, err := site.NewSite()
+	ctx := context.Background()
+
+	db, err := pgx.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
+	if err != nil {
+		return errors.WithMessage(err, "pgx.Connect")
+	}
+	defer db.Close(ctx)
+
+	log.Println("Connected to the Database")
+
+	server, err := site.NewSite(db)
 	if err != nil {
 		return errors.WithMessage(err, "NewSite")
 	}

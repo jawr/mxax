@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@tailwindcss/typography": "^0.2.0",
+    "clean-css-cli": "^4.3.0",
     "tailwindcss": "^1.6.2"
   }
 }

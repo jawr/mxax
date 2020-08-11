@@ -2,6 +2,7 @@ package site
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -21,6 +22,7 @@ type errorHandler func(w http.ResponseWriter, req *http.Request, ps httprouter.P
 func (s *Site) handle(r *route) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 		if err := r.h(w, req, ps); err != nil {
+			log.Printf("Error: %s", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -36,6 +38,8 @@ func (s *Site) setupRoutes() error {
 	// middleware here
 	routes := []routeFn{
 		s.getLander,
+		s.getPostRegister,
+		s.getThankyou,
 	}
 
 	for idx := range routes {

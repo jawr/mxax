@@ -28,21 +28,6 @@ func (s *Site) setupRoutes() error {
 	s.router.GET("/login", getPostLogin)
 	s.router.POST("/login", getPostLogin)
 
-	getPostRegister, err := s.getPostRegister()
-	if err != nil {
-		return errors.WithMessage(err, "getPostRegister")
-	}
-
-	s.router.GET("/register", getPostRegister)
-	s.router.POST("/register", getPostRegister)
-
-	getThankyou, err := s.getThankyou()
-	if err != nil {
-		return errors.WithMessage(err, "getThankyou")
-	}
-
-	s.router.GET("/thankyou", getThankyou)
-
 	// make these all accountID/auth handlers by default and apply the auth
 	// middleware here
 	routes := []routeFn{

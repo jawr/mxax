@@ -1,47 +1,44 @@
 {{define "page"}}
-<div class="mw9 center br1 mh3 mv3">
-  <div class="w-100 bb b--near-white pa3 cf">
-    <h3 class="f4 ma0 p0 fl">
-      <i class="lni lni-file mr2"></i> 
-      Details
-    </h3>
-  </div>
+<div class="bg-white text-sm uppercase px-5 py-2 shadow-bottom">
+  <h1 class="heading tracking-wide text-2xl">
+    <svg class="fill-current h-4 inline mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M10 20a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-5.6-4.29a9.95 9.95 0 0 1 11.2 0 8 8 0 1 0-11.2 0zm6.12-7.64l3.02-3.02 1.41 1.41-3.02 3.02a2 2 0 1 1-1.41-1.41z"/></svg>
+    Log Details
+  </h1>
+</div>
 
-  <div class="w-100 pa4">
-    <dl class="lh-title pa4 mt0">
-      <dt class="f6 b">From</dt>
-      <dd class="ml0">{{.Entry.FromEmail}}</dd>
-      <dt class="f6 b mt2">Via</dt>
-      <dd class="ml0">{{.Entry.ViaEmail}}</dd>
-      <dt class="f6 b mt2">To</dt>
-      <dd class="ml0">{{.Entry.ToEmail}}</dd>
-      <dt class="f6 b mt2">At</dt>
-      <dd class="ml0">{{.Entry.DateTime}}</dd>
-    </dl>
+<div class="overflow-y-auto overflow-x-hidden h-screen">
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-4">
 
-    <div class="w-100 bb b--near-white pa3 cf">
-      <h4 class="f5 ma0 p0 fl">
-        Status
-      </h4>
+    <!-- details -->
+    <div class="col-span-1">
+      <div>
+        <h1 class="heading uppercase pl-2 pb-2 text-sm">Details</h1>
+      </div>
+      <div class="bg-white shadow-bottom card-radius pa-4">
+        <div class="h-auto p-4">
+          <ul>
+            <li><b>From</b> {{.Entry.FromEmail}}</li>
+            {{if .Entry.ViaEmail}}
+            <li><b>Via</b> {{.Entry.ViaEmail}}</li>
+            {{end}}
+            <li><b>To</b>  {{.Entry.ToEmail}}</li>
+            {{if .Entry.Status}}
+            <li><b>Status</b> {{.Entry.Status}}</li>
+            {{end}}
+            <li><b>Logged At</b> {{.Entry.DateTime}}</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
-    <div class="br1 b--light-green bg-near-white">
-      <p class="pre overflow-auto pa3">
-      {{.Entry.Status}}
-      </p>
+    <div class="col-span-1">
+      <div>
+        <h1 class="heading uppercase pl-2 pb-2 text-sm">Message</h1>
+      </div>
+      <div class="bg-white shadow-bottom card-radius pa-4">
+        <div class="h-auto p-4 whitespace-pre overflow-auto">{{.Entry.GetMessage}}</div>
+      </div>
     </div>
-
-    <div class="w-100 bb b--near-white pa3 cf">
-      <h4 class="f5 ma0 p0 fl">
-        Message
-      </h4>
-    </div>
-    <div class="br1 b--light-green bg-near-white">
-      <p class="pre overflow-auto pa3">
-      {{.Entry.GetMessage}}
-      </p>
-    </div>
-
   </div>
 </div>
 {{end}}

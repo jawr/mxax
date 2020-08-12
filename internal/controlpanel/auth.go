@@ -2,6 +2,7 @@ package controlpanel
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -12,6 +13,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
+	"github.com/jawr/mxax/internal/account"
 	"github.com/julienschmidt/httprouter"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -19,11 +21,20 @@ import (
 const sessionDuration = time.Second * 60000
 
 type session struct {
-	ExpiresAt time.Time
-	AccountID int
+	ExpiresAt   time.Time
+	AccountID   int
+	AccountType account.AccountType
 }
 
 type accountHandle func(tx pgx.Tx, w http.ResponseWriter, r *http.Request, ps httprouter.Params) error
+
+func getAccountType(ctx context.Context) account.AccountType {
+	at, ok := ctx.Value("account_type").(account.AccountType)
+	if !ok {
+		return account.AccountTypeFree
+	}
+	return at
+}
 
 func (s *Site) auth(r *route) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
@@ -48,6 +59,8 @@ func (s *Site) auth(r *route) httprouter.Handle {
 
 		var refresh bool
 		var accountID int
+		var accountType account.AccountType
+
 		err = s.sessionStore.Update(func(txn *badger.Txn) error {
 			item, err := txn.Get([]byte(c.Value))
 			if err != nil {
@@ -79,19 +92,24 @@ func (s *Site) auth(r *route) httprouter.Handle {
 				}
 
 				accountID = ses.AccountID
+				accountType = ses.AccountType
 
 				return nil
 			})
 		})
 
 		if refresh {
-			if err := s.setCookie(w, req, accountID); err != nil {
+			if err := s.setCookie(w, req, accountID, accountType); err != nil {
 				s.handleError(w, r, err)
 				return
 			}
 		}
 
 		if err == nil && accountID > 0 {
+			req = req.WithContext(
+				context.WithValue(req.Context(), "account_type", accountType),
+			)
+
 			tx, err := s.db.Begin(req.Context())
 			if err != nil {
 				s.handleError(w, r, err)
@@ -151,11 +169,12 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 
 			var accountID int
 			var hash []byte
+			var accountType account.AccountType
 			err := s.adminDB.QueryRow(
 				req.Context(),
 				"SELECT id, password FROM accounts WHERE email = $1 AND verified_at IS NOT NULL",
 				email,
-			).Scan(&accountID, &hash)
+			).Scan(&accountID, &hash, &accountType)
 			if err != nil {
 				log.Printf("SELECT: %s", err)
 				d.Errors.Add("", "Email not found or Password is incorrect")
@@ -168,7 +187,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 				goto FAIL
 			}
 
-			if err := s.setCookie(w, req, accountID); err != nil {
+			if err := s.setCookie(w, req, accountID, accountType); err != nil {
 				s.handleErrorPlain(w, r, err)
 				return
 			}
@@ -226,7 +245,7 @@ func (s *Site) getLogout() (*route, error) {
 	return r, nil
 }
 
-func (s *Site) setCookie(w http.ResponseWriter, r *http.Request, accountID int) error {
+func (s *Site) setCookie(w http.ResponseWriter, r *http.Request, accountID int, accountType account.AccountType) error {
 	sessionToken, err := uuid.NewRandom()
 	if err != nil {
 		return err
@@ -236,8 +255,9 @@ func (s *Site) setCookie(w http.ResponseWriter, r *http.Request, accountID int) 
 
 	err = s.sessionStore.Update(func(txn *badger.Txn) error {
 		ses := session{
-			ExpiresAt: expiresAt,
-			AccountID: accountID,
+			ExpiresAt:   expiresAt,
+			AccountID:   accountID,
+			AccountType: accountType,
 		}
 
 		buf := s.bufferPool.Get().(*bytes.Buffer)

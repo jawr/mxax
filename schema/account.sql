@@ -6,6 +6,8 @@ CREATE TABLE accounts (
 	username TEXT UNIQUE NOT NULL,
 	password BYTEA NOT NULL,
 	smtp_password BYTEA,
+	account_type INT NOT NULL DEFAULT 0,
+	log_level INT NOT NULL DEFAULT 0,
 	verify_code UUID NOT NULL DEFAULT gen_random_uuid(),
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 	verified_at TIMESTAMP WITH TIME ZONE,

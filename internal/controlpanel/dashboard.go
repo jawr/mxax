@@ -2,7 +2,9 @@ package controlpanel
 
 import (
 	"log"
+	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -79,6 +81,15 @@ func (s *Site) getDashboard() (*route, error) {
 
 			if name := req.FormValue("domain"); len(name) > 0 {
 
+				allowed, err := s.aclDomainCreateCheck(req.Context(), tx)
+				if err != nil {
+					return err
+				}
+
+				if !allowed {
+					d.DomainFormErrors.Add("domain", "current subscription doesn't allow any more domains")
+				}
+
 				// get expires at for domain
 				// also acts as an additional layer of
 				// validation, might be too noisey/error prone
@@ -111,22 +122,28 @@ func (s *Site) getDashboard() (*route, error) {
 			}
 
 			if address := req.FormValue("address"); len(address) > 0 {
-				if strings.Count(address, "@") != 1 {
+				if !isEmailValid(address) {
 					d.DestinationFormErrors.Add("address", "Does not look like an email address")
 				}
 
-				// TODO
-				// what other checks do we want to introduce here
+				allowed, err := s.aclDestinationCreateCheck(req.Context(), tx)
+				if err != nil {
+					return err
+				}
+
+				if !allowed {
+					d.DestinationFormErrors.Add("address", "current subscription doesn't allow any more destinations")
+				}
 
 				if !d.DestinationFormErrors.Error() {
 
 					_, err := tx.Exec(
 						req.Context(),
 						`
-				INSERT INTO destinations (account_id, address) 
-				VALUES (current_setting('mxax.current_account_id')::INT, $1) 
-					ON CONFLICT (account_id, address) DO UPDATE SET deleted_at = NULL
-				`,
+						INSERT INTO destinations (account_id, address) 
+						VALUES (current_setting('mxax.current_account_id')::INT, $1) 
+							ON CONFLICT (account_id, address) DO UPDATE SET deleted_at = NULL
+						`,
 						strings.ToLower(address),
 					)
 					if err != nil {
@@ -378,4 +395,23 @@ func (s *Site) getDashboard() (*route, error) {
 	}
 
 	return r, nil
+}
+
+var emailRegex = regexp.MustCompile(
+	"^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+)
+
+func isEmailValid(e string) bool {
+	if len(e) < 3 && len(e) > 254 {
+		return false
+	}
+	if !emailRegex.MatchString(e) {
+		return false
+	}
+	parts := strings.Split(e, "@")
+	mx, err := net.LookupMX(parts[1])
+	if err != nil || len(mx) == 0 {
+		return false
+	}
+	return true
 }

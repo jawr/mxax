@@ -28,14 +28,6 @@ type session struct {
 
 type accountHandle func(tx pgx.Tx, w http.ResponseWriter, r *http.Request, ps httprouter.Params) error
 
-func getAccountType(ctx context.Context) account.AccountType {
-	at, ok := ctx.Value("account_type").(account.AccountType)
-	if !ok {
-		return account.AccountTypeFree
-	}
-	return at
-}
-
 func (s *Site) auth(r *route) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
 

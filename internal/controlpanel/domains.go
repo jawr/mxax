@@ -148,6 +148,15 @@ func (s *Site) getDomain() (*route, error) {
 		if d.IsComplete {
 			if req.Method == "POST" {
 
+				allowed, err := s.aclAliasCreateCheck(req.Context(), tx)
+				if err != nil {
+					return err
+				}
+
+				if !allowed {
+					d.AliasFormErrors.Add("rule", "current subscription doesn't allow any more aliases")
+				}
+
 				rule := req.FormValue("rule")
 				destinationID, err := strconv.Atoi(req.FormValue("destination"))
 				if err != nil {
@@ -157,31 +166,30 @@ func (s *Site) getDomain() (*route, error) {
 
 				if len(rule) == 0 {
 					d.AliasFormErrors.Add("rule", "Must enter a Rule")
-					goto END_POST
-
 				}
 
 				_, err = regexp.Compile(rule)
 				if err != nil {
 					d.Errors.Add("rule", err.Error())
-					goto END_POST
 				}
 
-				err = account.CreateAlias(
-					req.Context(),
-					tx,
-					rule,
-					d.Domain.ID,
-					destinationID,
-				)
-				if err != nil {
-					log.Printf("Error creating alias: %s", err)
-					d.Errors.Add(
-						"",
-						"Unable to attach destination to alias. Please contact support.",
+				if !d.Errors.Error() {
+
+					err = account.CreateAlias(
+						req.Context(),
+						tx,
+						rule,
+						d.Domain.ID,
+						destinationID,
 					)
+					if err != nil {
+						log.Printf("Error creating alias: %s", err)
+						d.Errors.Add(
+							"",
+							"Unable to attach destination to alias. Please contact support.",
+						)
+					}
 				}
-			END_POST:
 			}
 
 			err := pgxscan.Select(

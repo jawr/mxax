@@ -34,6 +34,9 @@ type routeFn func() (*route, error)
 func (s *Site) setupRoutes() error {
 	s.router = httprouter.New()
 
+	s.router.HandlerFunc("POST", "/stripe", s.handleStripeWebhook)
+	s.router.HandlerFunc("POST", "/stripe/subscription", handleStripeCreateSubscription)
+
 	// make these all accountID/auth handlers by default and apply the auth
 	// middleware here
 	routes := []routeFn{
@@ -42,6 +45,7 @@ func (s *Site) setupRoutes() error {
 		s.getThankyou,
 		s.getPostContact,
 		s.getVerify,
+		s.getPostSubscription,
 	}
 
 	for idx := range routes {

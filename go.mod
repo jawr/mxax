@@ -27,5 +27,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/speps/go-hashids v2.0.0+incompatible
 	github.com/streadway/amqp v1.0.0
+	github.com/stripe/stripe-go v70.15.0+incompatible
+	github.com/stripe/stripe-go/v71 v71.44.0
 	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
 )

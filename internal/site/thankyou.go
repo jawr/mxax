@@ -29,6 +29,8 @@ func (s *Site) getThankyou() (*route, error) {
 			d.Message = "You should receive a verification email shortly."
 		case "contact":
 			d.Message = "We will get back to you soon!"
+		case "subscribe":
+			d.Message = "Please validate your email if you haven't already, and login!"
 		default:
 			d.Message = "For being you. <3."
 		}

@@ -18,12 +18,14 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
+	"github.com/stripe/stripe-go/v71"
+	"github.com/stripe/stripe-go/v71/customer"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func (s *Site) getPostRegister() (*route, error) {
 	r := &route{
-		path:    "/register",
+		path:    "/register/:accountType",
 		methods: []string{"GET", "POST"},
 	}
 
@@ -47,8 +49,10 @@ func (s *Site) getPostRegister() (*route, error) {
 			Form: newForm(),
 		}
 
+		accountType := ps.ByName("accountType")
+
 		if req.Method == "POST" {
-			code, err := s.registerUser(req, &d.Form)
+			code, err := s.registerUser(req, &d.Form, accountType)
 			if err != nil {
 				return err
 			}
@@ -58,7 +62,13 @@ func (s *Site) getPostRegister() (*route, error) {
 					return err
 				}
 
-				http.Redirect(w, req, "/thankyou/register", http.StatusFound)
+				if accountType == "subscription" {
+					http.Redirect(w, req, "/subscription/"+code, http.StatusFound)
+
+				} else {
+					http.Redirect(w, req, "/thankyou/register", http.StatusFound)
+				}
+
 				return nil
 			}
 		}
@@ -165,7 +175,7 @@ func (s *Site) queueEmail(email smtp.Email) error {
 	return nil
 }
 
-func (s *Site) registerUser(req *http.Request, form *Form) (string, error) {
+func (s *Site) registerUser(req *http.Request, form *Form, accountType string) (string, error) {
 	email := req.FormValue("email")
 	password := req.FormValue("password")
 	confirmPassword := req.FormValue("confirm-password")
@@ -214,6 +224,29 @@ func (s *Site) registerUser(req *http.Request, form *Form) (string, error) {
 	).Scan(&code)
 	if err != nil {
 		return "", err
+	}
+
+	if accountType == "subscription" {
+		params := &stripe.CustomerParams{
+			Email: stripe.String(email),
+		}
+
+		c, err := customer.New(params)
+		if err != nil {
+			return "", err
+		}
+
+		_, err = s.db.Exec(
+			req.Context(),
+			`
+		UPDATE accounts SET stripe_customer_id = $1 WHERE email = $2
+		`,
+			c.ID,
+			email,
+		)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return code, nil

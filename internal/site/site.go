@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
+	"github.com/stripe/stripe-go/v71"
 )
 
 type Site struct {
@@ -30,6 +31,8 @@ type Site struct {
 }
 
 func NewSite(db *pgx.Conn, emailPublisher *rabbitmq.Channel) (*Site, error) {
+	stripe.Key = os.Getenv("MXAX_STRIPE_KEY")
+
 	s := &Site{
 		db: db,
 		bufferPool: sync.Pool{

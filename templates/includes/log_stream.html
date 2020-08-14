@@ -13,11 +13,13 @@
       <p class="truncate">{{template "log_entry_status" .}} {{.ToEmail}}</p>
       </p>
     </div>
+    {{if ne .Etype 0}}
     <div class="px-2 clearfix">
       <div class="mt-2 text-gray-400 text-sm heading float-right">
         <a class="underline" href="/log/detail/{{.ID}}/{{.EncodeTime}}">View Details</a>
       </div>
     </div>
+    {{end}}
   </div>
   {{end}}
 </div>

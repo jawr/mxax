@@ -17,16 +17,13 @@ type AccountType int
 
 const (
 	AccountTypeFree AccountType = iota
-	AccountTypeBasic
-	AccountTypePro
+	AccountTypeSubscription
 )
 
 func (at AccountType) String() string {
 	switch at {
-	case AccountTypeBasic:
-		return "Basic"
-	case AccountTypePro:
-		return "Pro"
+	case AccountTypeSubscription:
+		return "Subscription"
 	case AccountTypeFree:
 		fallthrough
 	default:

@@ -164,7 +164,7 @@ func (s *Site) getPostLogin() (httprouter.Handle, error) {
 			var accountType account.AccountType
 			err := s.adminDB.QueryRow(
 				req.Context(),
-				"SELECT id, password FROM accounts WHERE email = $1 AND verified_at IS NOT NULL",
+				"SELECT id, password, account_type FROM accounts WHERE email = $1 AND verified_at IS NOT NULL",
 				email,
 			).Scan(&accountID, &hash, &accountType)
 			if err != nil {

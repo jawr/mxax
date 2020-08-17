@@ -4,34 +4,43 @@
   <div class="container px-3 pt-20 m-auto flex flex-wrap flex-col md:flex-row items-center">
     <div class="max-w-sm lg:max-w-full lg:flex m-auto bg-white shadow-md card-radius">
 
-      <div class="p-6">
-        <img class="h-56" src="/img/undraw_typewriter_i8xd.svg" />
-      </div>
-
       <div class="flex flex-col justify-between leading-normal">
 
         <form method="post" class="px-8 pt-6 pb-6">
+          <div class="prose mb-8">
+            <h3 class="heading uppercase text-blue-900">Just a few details</h3>
+            <p>Enter a valid email address and use a strong password to get started.</p>
+          </div>
+
           <div class="mb-4">
             <label class="heading uppercase block text-gray-700 text-sm mb-2" for="email">
               Email
             </label>
-            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="email" type="text" placeholder="user@mx.ax">
+            <input required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="email" type="text" placeholder="user@mx.ax">
           </div>
           <div class="mb-6">
             <label class="heading uppercase block text-gray-700 text-sm mb-2" for="password">
               Password
             </label>
-            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" name="password" type="password" placeholder="******************">
+            <input required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" name="password" type="password" placeholder="******************">
 
             <label class="heading uppercase block text-gray-700 text-sm mb-2" for="confirm-password">
               Confirm Password
             </label>
-            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" name="confirm-password" type="password" placeholder="******************">
+            <input required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" name="confirm-password" type="password" placeholder="******************">
+
+          <label class="md:w-2/3 block text-gray-500 font-bold mt-4 mb-4">
+            <input required name="terms" class="mr-2 leading-tight" type="checkbox">
+            <span class="text-sm">
+              I have read and agree to the <a href="/terms" target="_blank" class="underline">Terms of Use</a>.
+            </span>
+          </label>
 
             {{range .Form.AllErrors}}
             <p class="text-red-500 text-xs italic">{{.}}</p>
             {{end}}
           </div>
+
           <div class="flex items-center justify-between">
             <input class="cursor-pointer bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit" value="Register" />
 

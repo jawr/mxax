@@ -14,13 +14,6 @@
     <link rel="stylesheet" href="/css/stylesheet.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Antic+Slab&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
 
-    <!-- Define your gradient here - use online tools to find a gradient matching your branding-->
-    <style>
-      .gradient {
-        background: radial-gradient(circle, rgba(66,153,225,1) 0%, rgba(26,32,44,1) 95%); 
-      }
-    </style>
-
     {{block "stylesheets" .}}{{end}}
 
   </head>
@@ -28,7 +21,7 @@
   <body class="leading-normal tracking-normal text-white gradient" style="font-family: 'Nanum Gothic', sans-serif;">
 
     <!--Nav-->
-    <nav id="header" class="fixed w-full z-30 top-0 text-white shadow">
+    <nav id="header" class="fixed w-full z-30 top-0 text-white shadow bg-gray-900">
 
       <div class="w-full container mx-auto flex flex-wrap items-center justify-between mt-0 py-2">
 
@@ -51,7 +44,7 @@
               <a class="toggleColour inline-block py-2 px-4 text-gray-200 font-bold hover:text-blue-500 no-underline" href="/#pp">Plans & Pricing</a>
             </li>
             <li class="mr-3">
-              <a class="toggleColour inline-block py-2 px-4 text-gray-200 font-bold hover:text-blue-500 no-underline" href="#">Terms of Use</a>
+              <a class="toggleColour inline-block py-2 px-4 text-gray-200 font-bold hover:text-blue-500 no-underline" href="/terms">Terms & Privacy</a>
             </li>
             <li class="mr-3">
               <a class="toggleColour inline-block py-2 px-4 text-gray-200 font-bold hover:text-blue-500 no-underline" href="https://my.mx.ax">Login</a>
@@ -116,6 +109,43 @@
 
 
     </script>
+
+<script>
+  
+  
+  /*Toggle dropdown list*/
+  /*https://gist.github.com/slavapas/593e8e50cf4cc16ac972afcbad4f70c8*/
+  
+  var navMenuDiv = document.getElementById("nav-content");
+  var navMenu = document.getElementById("nav-toggle");
+  
+  document.onclick = check;
+  function check(e){
+    var target = (e && e.target) || (event && event.srcElement);
+    
+    //Nav Menu
+    if (!checkParent(target, navMenuDiv)) {
+    // click NOT on the menu
+    if (checkParent(target, navMenu)) {
+      // click on the link
+      if (navMenuDiv.classList.contains("hidden")) {
+      navMenuDiv.classList.remove("hidden");
+      } else {navMenuDiv.classList.add("hidden");}
+    } else {
+      // click both outside link and outside menu, hide menu
+      navMenuDiv.classList.add("hidden");
+    }
+    }
+    
+  }
+  function checkParent(t, elm) {
+    while(t.parentNode) {
+    if( t == elm ) {return true;}
+    t = t.parentNode;
+    }
+    return false;
+  }
+</script>
 
     {{block "scripts" .}}{{end}}
 

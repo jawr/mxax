@@ -32,28 +32,41 @@ func (s *Site) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if event.Type != "checkout.session.completed" {
-		return
-	}
-
 	c, err := customer.Get(event.GetObjectValue("customer"), nil)
 	if err != nil {
 		log.Printf("customer.Get: %v", err)
 		return
 	}
 
-	log.Printf("🔔 Customer is subscribed %s", c.Email)
+	log.Printf("stripe event: %s for %s", event.Type, c.ID)
 
-	_, err = s.db.Query(
-		r.Context(),
-		`
-	UPDATE accounts SET account_type = $1 WHERE stripe_customer_id = $2
-	`,
-		account.AccountTypeSubscription,
-		c.ID,
-	)
-	if err != nil {
-		log.Printf("Update account tabkle: %s", err)
+	switch event.Type {
+
+	case "invoice.paid":
+		_, err = s.db.Query(
+			r.Context(),
+			`
+			UPDATE accounts SET account_type = $1 WHERE stripe_customer_id = $2
+			`,
+			account.AccountTypeSubscription,
+			c.ID,
+		)
+		if err != nil {
+			log.Printf("Update account table: %s", err)
+		}
+
+	case "invoice.payment_failed":
+		_, err = s.db.Query(
+			r.Context(),
+			`
+			UPDATE accounts SET account_type = $1 WHERE stripe_customer_id = $2
+			`,
+			account.AccountTypeFree,
+			c.ID,
+		)
+		if err != nil {
+			log.Printf("Update account table: %s", err)
+		}
 	}
 
 	return

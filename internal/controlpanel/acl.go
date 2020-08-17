@@ -18,7 +18,7 @@ func getAccounType(ctx context.Context) account.AccountType {
 func (s *Site) aclDomainCreateCheck(ctx context.Context, tx pgx.Tx) (bool, error) {
 	accountType := getAccounType(ctx)
 
-	if accountType == account.AccountTypePro {
+	if accountType == account.AccountTypeSubscription {
 		return true, nil
 	}
 
@@ -45,9 +45,7 @@ func (s *Site) aclDestinationCreateCheck(ctx context.Context, tx pgx.Tx) (bool, 
 	accountType := getAccounType(ctx)
 
 	switch accountType {
-	case account.AccountTypePro:
-		fallthrough
-	case account.AccountTypeBasic:
+	case account.AccountTypeSubscription:
 		return true, nil
 	}
 
@@ -74,9 +72,7 @@ func (s *Site) aclAliasCreateCheck(ctx context.Context, tx pgx.Tx) (bool, error)
 	accountType := getAccounType(ctx)
 
 	switch accountType {
-	case account.AccountTypePro:
-		fallthrough
-	case account.AccountTypeBasic:
+	case account.AccountTypeSubscription:
 		return true, nil
 	}
 

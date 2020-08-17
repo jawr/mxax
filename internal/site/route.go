@@ -44,6 +44,7 @@ func (s *Site) setupRoutes() error {
 		s.getPostRegister,
 		s.getThankyou,
 		s.getPostContact,
+		s.getTerms,
 		s.getVerify,
 		s.getPostSubscription,
 	}

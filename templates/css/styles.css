@@ -2,8 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+.gradient {
+	background-color: "#1A202C";
+	background: radial-gradient(circle, rgba(66,153,225,1) 0%, rgba(26,32,44,1) 95%); 
+}
+
 .heading {
-	    font-family: 'Antic Slab', sans-serif;
+	font-family: 'Antic Slab', sans-serif;
 }
 
 .shadow-bottom {
@@ -11,10 +16,10 @@
 }
 
 .card-radius {
-	 border-radius: 7px;
+	border-radius: 7px;
 }
 
 body {
-	    font-family: 'Nanum Gothic', sans-serif;
-		@apply text-blue-900;
+	font-family: 'Nanum Gothic', sans-serif;
+	@apply text-blue-900;
 }

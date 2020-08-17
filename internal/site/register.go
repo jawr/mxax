@@ -176,6 +176,12 @@ func (s *Site) queueEmail(email smtp.Email) error {
 }
 
 func (s *Site) registerUser(req *http.Request, form *Form, accountType string) (string, error) {
+	terms := req.FormValue("terms")
+	if terms != "on" {
+		form.AddError("terms", "Must accept Terms of Use")
+		return "", nil
+	}
+
 	email := req.FormValue("email")
 	password := req.FormValue("password")
 	confirmPassword := req.FormValue("confirm-password")

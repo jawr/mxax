@@ -9,13 +9,22 @@
     <div class="max-w-sm lg:max-w-full m-auto w-full lg:w-2/3 bg-white shadow-md card-radius">
 
         <form method="post" class="px-8 pt-6 pb-6" id="subscription-form">
-          <div id="card-element" class="container-sm">
+          <div class="prose mb-8">
+            <h3 class="heading uppercase text-blue-900">Nearly Done</h3>
+            <p>Add your card details to create your monthly subscription.</p>
+          </div>
+          <div id="card-element" class="w-full">
             <!-- Elements will create input elements here -->
           </div>
 
-          <div id="card-errors" role="alert"></div>
-          <div class="flex items-center justify-between mt-6">
-            <input class="cursor-pointer bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit" value="Subscribe" />
+          <div id="card-errors" class="text-red-500 italic mt-4" role="alert"></div>
+          <div class="flex items-center justify-between mt-12">
+            <input
+              id="submit"
+              class="cursor-pointer bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded focus:outline-none focus:shadow-outline" 
+              type="submit" 
+              value="Subscribe" 
+              />
           </div>
         </form>
 
@@ -44,17 +53,17 @@
 
   var style = {
     base: {
-      color: "#32325d",
-      fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+      color: "#2D3748",
+      fontFamily: '"Nanum Gothid", Helvetica, sans-serif',
       fontSmoothing: "antialiased",
       fontSize: "16px",
       "::placeholder": {
-        color: "#aab7c4"
+        color: "#A0AEC0"
       }
     },
     invalid: {
-      color: "#fa755a",
-      iconColor: "#fa755a"
+      color: "#F56565",
+      iconColor: "#F56565"
     }
   };
 
@@ -77,8 +86,12 @@
 
 
   var form = document.getElementById('subscription-form');
+  var button = document.getElementById('submit');
 
   form.addEventListener('submit', function (ev) {
+    button.setAttribute("disabled", "disabled");
+    button.value = 'Working...';
+    button.classList.add("opacity-50");
     ev.preventDefault();
 
     // If a previous payment was attempted, get the latest invoice
@@ -99,6 +112,10 @@
       // create new payment method & create subscription
       createPaymentMethod({ card });
     }
+
+    button.removeAttribute("disabled");
+    button.value = 'Subscribe';
+    button.classList.remove("opacity-50");
   });
 
   function createPaymentMethod({ card, isPaymentRetry, invoiceId }) {
@@ -115,7 +132,7 @@
       })
       .then((result) => {
         if (result.error) {
-          displayError(result);
+          showCardError(result);
         } else {
           if (isPaymentRetry) {
             // Update the payment method and retry invoice payment
@@ -266,9 +283,6 @@
               }
             }
           })
-          .catch((error) => {
-            displayError(error);
-          });
       } else {
         // No customer action needed.
           return { subscription, priceId, paymentMethodId };

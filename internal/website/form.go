@@ -1,4 +1,4 @@
-package site
+package website
 
 type Form struct {
 	m map[string]string

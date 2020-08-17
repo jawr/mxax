@@ -1,4 +1,4 @@
-package site
+package website
 
 import (
 	"net/http"
@@ -6,14 +6,14 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func (s *Site) getLander() (*route, error) {
+func (s *Site) getTerms() (*route, error) {
 	r := &route{
-		path:    "/",
+		path:    "/terms",
 		methods: []string{"GET"},
 	}
 
 	// setup template
-	tmpl, err := s.loadTemplate("templates/pages/lander.html")
+	tmpl, err := s.loadTemplate("templates/pages/terms.html")
 	if err != nil {
 		return r, err
 	}

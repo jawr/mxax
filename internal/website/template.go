@@ -1,4 +1,4 @@
-package site
+package website
 
 import (
 	"bytes"

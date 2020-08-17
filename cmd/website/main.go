@@ -8,7 +8,7 @@ import (
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
-	"github.com/jawr/mxax/internal/site"
+	"github.com/jawr/mxax/internal/website"
 	"github.com/pkg/errors"
 )
 
@@ -46,7 +46,7 @@ func run() error {
 
 	log.Println("Connected to the MQ")
 
-	server, err := site.NewSite(db, emailPublisher)
+	server, err := website.NewSite(db, emailPublisher)
 	if err != nil {
 		return errors.WithMessage(err, "NewSite")
 	}

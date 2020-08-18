@@ -2,7 +2,6 @@ package sender
 
 import (
 	"crypto/tls"
-	"log"
 	"net"
 	"sort"
 	"strings"
@@ -34,13 +33,10 @@ func (s *Sender) sendEmail(rdns string, dialer net.Dialer, email *smtp.Email) (s
 	// try until we hit an mx successfully
 	var dialErr error
 	for _, mx := range destinationMXs {
-		log.Printf("Checking %s", mx.Host)
-
 		// reset err, if we hit a dial error, iterate to the next
 		dialErr = nil
 		conn, err := dialer.Dial("tcp", mx.Host+":25")
 		if err != nil {
-			log.Printf("Unable to dial '%s': %s", mx.Host, err)
 			dialErr = errors.WithMessagef(err, "dial '%s'", mx.Host)
 			continue
 		}

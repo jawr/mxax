@@ -15,11 +15,11 @@ import (
 func (s *Server) detectAlias(email string) (account.Alias, error) {
 	email = strings.ToLower(email)
 
-	if _, ok := s.cacheGet("alias:nxmatch", email); ok {
+	if _, ok := s.cache.Get("alias:nxmatch", email); ok {
 		return account.Alias{}, errors.Errorf("nxmatch cache hit for '%s'", email)
 	}
 
-	if alias, ok := s.cacheGet("alias:match", email); ok {
+	if alias, ok := s.cache.Get("alias:match", email); ok {
 		return alias.(account.Alias), nil
 	}
 
@@ -32,13 +32,13 @@ func (s *Server) detectAlias(email string) (account.Alias, error) {
 	domain := parts[1]
 
 	// check if this is a bad domain we have checked already
-	if _, ok := s.cacheGet("nxdomain", domain); ok {
+	if _, ok := s.cache.Get("nxdomain", domain); ok {
 		return account.Alias{}, errors.Errorf("nxdomain cache hit for '%s'", domain)
 	}
 
 	// search for domain in the database
 	var all []account.Alias
-	cacheAll, ok := s.cacheGet("aliases", domain)
+	cacheAll, ok := s.cache.Get("aliases", domain)
 
 	if !ok {
 		err := pgxscan.Select(
@@ -58,11 +58,11 @@ func (s *Server) detectAlias(email string) (account.Alias, error) {
 			domain,
 		)
 		if err != nil {
-			s.cacheSet("alias:nxdomain", domain, struct{}{})
+			s.cache.Set("alias:nxdomain", domain, struct{}{})
 			return account.Alias{}, err
 		}
 
-		s.cacheSet("alias:domain", domain, all)
+		s.cache.Set("alias:domain", domain, all)
 
 	} else {
 		all = cacheAll.([]account.Alias)
@@ -75,13 +75,13 @@ func (s *Server) detectAlias(email string) (account.Alias, error) {
 			continue
 		}
 		if ok {
-			s.cacheSet("alias:match", email, i)
+			s.cache.Set("alias:match", email, i)
 			return i, nil
 		}
 	}
 
 	// no matches found, update nxmatch and return
-	s.cacheSet("nxmatch", email, struct{}{})
+	s.cache.Set("nxmatch", email, struct{}{})
 
 	return account.Alias{}, errors.New("nxmatch")
 }

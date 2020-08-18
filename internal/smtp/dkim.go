@@ -34,7 +34,7 @@ func (s *Server) dkimSignHandler(session *SessionData, reader io.Reader, writer 
 }
 
 func (s *Server) getDkimPrivateKey(domainID int) (*rsa.PrivateKey, error) {
-	if key, ok := s.cacheGet("dkim", fmt.Sprintf("%d", domainID)); ok {
+	if key, ok := s.cache.Get("dkim", fmt.Sprintf("%d", domainID)); ok {
 		return key.(*rsa.PrivateKey), nil
 	}
 
@@ -58,7 +58,7 @@ func (s *Server) getDkimPrivateKey(domainID int) (*rsa.PrivateKey, error) {
 		return nil, errors.WithMessage(err, "x509.ParsePKCS1PrivateKey")
 	}
 
-	s.cacheSet("dkim", fmt.Sprintf("%d", domainID), key)
+	s.cache.Set("dkim", fmt.Sprintf("%d", domainID), key)
 
 	return key, nil
 }

@@ -6,10 +6,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/dgraph-io/ristretto"
 	"github.com/emersion/go-smtp"
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4"
+	"github.com/jawr/mxax/internal/cache"
 	"github.com/pkg/errors"
 )
 
@@ -33,17 +33,13 @@ type Server struct {
 	bufferPool sync.Pool
 
 	// multi purpose cache, strings are prefixed with namespace
-	cache *ristretto.Cache
+	cache *cache.Cache
 }
 
 // Create a new Server, currently only handles inbound
 // connections
 func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*Server, error) {
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
+	cache, err := cache.NewCache()
 	if err != nil {
 		return nil, errors.WithMessage(err, "NewCache")
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jawr/mxax/internal/smtp"
 	"github.com/pkg/errors"
-	"github.com/streadway/amqp"
 )
 
 func main() {
@@ -43,11 +42,11 @@ func run() error {
 	defer rabbitConn.Close()
 
 	// setup logs publisher
-	metricPublisher, err := createPublisher(rabbitConn, "logs")
+	logPublisher, err := createPublisher(rabbitConn, "logs")
 	if err != nil {
 		return errors.WithMessage(err, "createPublisher logs")
 	}
-	defer metricPublisher.Close()
+	defer logPublisher.Close()
 
 	// setup email publisher
 	emailPublisher, err := createPublisher(rabbitConn, "emails")
@@ -56,29 +55,17 @@ func run() error {
 	}
 	defer emailPublisher.Close()
 
-	// setup email subscriber
-	hostname, err := os.Hostname()
-	if err != nil {
-		return errors.WithMessage(err, "Hostname")
-	}
-
-	emailSubscriberCh, emailSubscriber, err := createSubscriber(rabbitConn, "emails", hostname+"smtpd")
-	if err != nil {
-		return errors.WithMessage(err, "createSubscriber emails")
-	}
-	defer emailSubscriberCh.Close()
-
 	log.Println("Connected to the MQ")
 
 	// server will eventually handle inbound and outbound
-	server, err := smtp.NewServer(db, metricPublisher, emailPublisher)
+	server, err := smtp.NewServer(db, logPublisher, emailPublisher)
 	if err != nil {
 		return errors.WithMessage(err, "NewServer")
 	}
 
 	log.Println("Starting SMTP Server")
 
-	if err := server.Run(os.Getenv("MXAX_DOMAIN"), emailSubscriber); err != nil {
+	if err := server.Run(os.Getenv("MXAX_DOMAIN")); err != nil {
 		return errors.WithMessage(err, "server.Run")
 	}
 
@@ -106,26 +93,4 @@ func createPublisher(conn *rabbitmq.Connection, queueName string) (*rabbitmq.Cha
 	}
 
 	return ch, nil
-}
-
-func createSubscriber(conn *rabbitmq.Connection, queueName, name string) (*rabbitmq.Channel, <-chan amqp.Delivery, error) {
-	ch, err := conn.Channel()
-	if err != nil {
-		return nil, nil, errors.WithMessage(err, "subscriber.Channel")
-	}
-
-	msgs, err := ch.Consume(
-		queueName,
-		name,
-		false, // autoack
-		false, // exclusive
-		false, // nolocal
-		false, // nowait
-		nil,
-	)
-	if err != nil {
-		return nil, nil, errors.WithMessage(err, "ch.Consume")
-	}
-
-	return ch, msgs, nil
 }

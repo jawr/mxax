@@ -165,7 +165,7 @@ func (s *Server) relay(session *SessionData) error {
 }
 
 func (s *Server) getRDNS(ip string) (string, error) {
-	if v, ok := s.cacheGet("rdns", ip); ok {
+	if v, ok := s.cache.Get("rdns", ip); ok {
 		return v.(string), nil
 	}
 
@@ -191,13 +191,13 @@ func (s *Server) getRDNS(ip string) (string, error) {
 		rdns = strings.Trim(addr[0], ".")
 	}
 
-	s.cacheSet("rdns", ip, rdns)
+	s.cache.Set("rdns", ip, rdns)
 
 	return rdns, nil
 }
 
 func (s *Server) getDestinations(aliasID int) ([]account.Destination, error) {
-	if destinations, ok := s.cacheGet("destinations", fmt.Sprintf("%d", aliasID)); ok {
+	if destinations, ok := s.cache.Get("destinations", fmt.Sprintf("%d", aliasID)); ok {
 		return destinations.([]account.Destination), nil
 	}
 
@@ -220,7 +220,7 @@ func (s *Server) getDestinations(aliasID int) ([]account.Destination, error) {
 		return nil, err
 	}
 
-	s.cacheSet("destinations", fmt.Sprintf("%d", aliasID), destinations)
+	s.cache.Set("destinations", fmt.Sprintf("%d", aliasID), destinations)
 
 	return destinations, nil
 }

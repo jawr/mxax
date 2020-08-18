@@ -22,13 +22,13 @@ func (s *Server) detectDomain(email string) (account.Domain, error) {
 
 	domain := parts[1]
 
-	if e, ok := s.cacheGet("domain", domain); ok {
+	if e, ok := s.cache.Get("domain", domain); ok {
 		d := e.(account.Domain)
 		return d, nil
 	}
 
 	// check if this is a bad domain we have checked already
-	if _, ok := s.cacheGet("nxdomain", domain); ok {
+	if _, ok := s.cache.Get("nxdomain", domain); ok {
 		return account.Domain{}, errors.Errorf("nxdomain cache hit for '%s'", domain)
 	}
 
@@ -48,11 +48,11 @@ func (s *Server) detectDomain(email string) (account.Domain, error) {
 		domain,
 	)
 	if err != nil {
-		s.cacheSet("nxdomain", domain, struct{}{})
+		s.cache.Set("nxdomain", domain, struct{}{})
 		return account.Domain{}, err
 	}
 
-	s.cacheSet("domain", domain, dom)
+	s.cache.Set("domain", domain, dom)
 
 	return dom, nil
 }

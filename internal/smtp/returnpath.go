@@ -11,7 +11,7 @@ import (
 
 func (s *Server) detectReturnPath(to string) (uuid.UUID, string, error) {
 	// check nx
-	if _, ok := s.cacheGet("nxreturnpath", to); ok {
+	if _, ok := s.cache.Get("nxreturnpath", to); ok {
 		return uuid.Nil, "", errors.Errorf("nx cache hit for '%s'", to)
 	}
 
@@ -49,7 +49,7 @@ func (s *Server) detectReturnPath(to string) (uuid.UUID, string, error) {
 
 	// if nothing found update and return
 	if len(replyTo) == 0 {
-		s.cacheSet("nx", to, struct{}{})
+		s.cache.Set("nx", to, struct{}{})
 		return uuid.Nil, "", nil
 	}
 

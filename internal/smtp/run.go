@@ -1,10 +1,6 @@
 package smtp
 
-import (
-	"github.com/streadway/amqp"
-)
-
-func (s *Server) Run(domain string, emailSubscriber <-chan amqp.Delivery) error {
+func (s *Server) Run(domain string) error {
 	// TODO
 	// add cancellation
 
@@ -19,10 +15,6 @@ func (s *Server) Run(domain string, emailSubscriber <-chan amqp.Delivery) error 
 
 	go func() {
 		errCh <- s.submissionServer.ListenAndServe()
-	}()
-
-	go func() {
-		errCh <- s.handleEmails(emailSubscriber)
 	}()
 
 	return <-errCh

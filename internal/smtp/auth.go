@@ -24,14 +24,14 @@ func (s *Server) Login(state *smtp.ConnectionState, email, password string) (smt
 	log.Printf("%s - try auth with %s / %s", session, email, password)
 
 	// filter out bad user/pass
-	if _, ok := s.cacheGet("login", email); ok {
+	if _, ok := s.cache.Get("login", email); ok {
 		log.Printf("%s - auth failed with %s / %s", session, email, password)
 		return nil, smtp.ErrAuthUnsupported
 	}
 
 	// buffer pool?
 	var cachedPassword []byte
-	cachedGet, ok := s.cacheGet("login", password)
+	cachedGet, ok := s.cache.Get("login", password)
 
 	if !ok {
 		// look for good user
@@ -43,12 +43,12 @@ func (s *Server) Login(state *smtp.ConnectionState, email, password string) (smt
 			email,
 		).Scan(&cachedPassword)
 		if err != nil {
-			s.cacheSet("login", email, struct{}{})
+			s.cache.Set("login", email, struct{}{})
 			log.Printf("%s - auth failed with %s / %s (%s)", session, email, password, err)
 			return nil, errors.New("Not authorized")
 		}
 
-		s.cacheSet("login", email, cachedPassword)
+		s.cache.Set("login", email, cachedPassword)
 	} else {
 		cachedPassword = cachedGet.([]byte)
 	}

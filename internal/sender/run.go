@@ -50,19 +50,9 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 			}
 
 			if len(email.Bounce) > 0 {
-				s.publishLogEntry(logger.Entry{
-					ID:            email.ID,
-					AccountID:     email.AccountID,
-					DomainID:      email.DomainID,
-					AliasID:       email.AliasID,
-					DestinationID: email.DestinationID,
-					FromEmail:     email.From,
-					ViaEmail:      email.Via,
-					ToEmail:       email.To,
-					Etype:         logger.EntryTypeBounce,
-					Status:        email.Bounce,
-					Message:       email.Message,
-				})
+				if err := s.handleBounce(email); err != nil {
+					log.Printf("=== - %s - Bounce Handler (%s -> %s -> %s) [%s] [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), reply, err)
+				}
 
 			} else {
 				log.Printf("=== - %s - Sent (%s -> %s -> %s) [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), reply)
@@ -77,6 +67,7 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 					ToEmail:       email.To,
 					Status:        reply,
 					Etype:         logger.EntryTypeSend,
+					QueueLevel:    int(email.QueueLevel),
 				})
 			}
 
@@ -90,5 +81,24 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 
 	log.Println("Shutting down Run")
 
+	return nil
+}
+
+func (s *Sender) handleBounce(email *smtp.Email) error {
+	// detect what type of bounce this is
+	s.publishLogEntry(logger.Entry{
+		ID:            email.ID,
+		AccountID:     email.AccountID,
+		DomainID:      email.DomainID,
+		AliasID:       email.AliasID,
+		DestinationID: email.DestinationID,
+		FromEmail:     email.From,
+		ViaEmail:      email.Via,
+		ToEmail:       email.To,
+		Etype:         logger.EntryTypeBounce,
+		Status:        email.Bounce,
+		Message:       email.Message,
+		QueueLevel:    int(email.QueueLevel),
+	})
 	return nil
 }

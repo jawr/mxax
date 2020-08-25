@@ -159,6 +159,7 @@ CREATE TABLE logs (
 	domain_id INT,
 	etype INT NOT NULL,
 	status TEXT NOT NULL,
+	queue_level INT NOT NULL,
 	message BYTEA
 );
 ALTER TABLE logs ENABLE ROW LEVEL SECURITY;

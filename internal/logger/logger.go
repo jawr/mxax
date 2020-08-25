@@ -34,6 +34,8 @@ type Entry struct {
 
 	Status string
 
+	QueueLevel int
+
 	// actual email message
 	Message []byte
 }

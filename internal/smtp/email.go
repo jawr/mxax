@@ -12,6 +12,8 @@ type Email struct {
 	To         string
 	Message    []byte
 
+	QueueLevel QueueLevel
+
 	// for metrics
 	AccountID     int
 	DomainID      int
@@ -33,4 +35,5 @@ func (e *Email) Reset() {
 	e.AliasID = 0
 	e.DestinationID = 0
 	e.Bounce = ""
+	e.QueueLevel = QueueLevelStraw
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jawr/mxax/internal/sender"
+	"github.com/jawr/mxax/internal/smtp"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
 	"golang.org/x/sync/errgroup"
@@ -37,9 +38,11 @@ func (s *StringSliceFlags) Set(v string) error {
 
 func run() error {
 	var ips, rdnss StringSliceFlags
+	var queue string
 
 	flag.Var(&ips, "ips", "List of IP addresses to listen to. Order must match -rdns.")
 	flag.Var(&rdnss, "rdns", "List of corresponding rdns. Order must match -ips.")
+	flag.StringVar(&queue, "queue", "", "Name of the queue to subscribe to")
 	flag.Parse()
 
 	log.Println(ips)
@@ -56,6 +59,10 @@ func run() error {
 
 	if len(ips) != len(rdnss) {
 		return errors.New("ips and rdns should be of equal length")
+	}
+
+	if _, ok := smtp.Queues[queue]; !ok {
+		return errors.New("that queue does not exist")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

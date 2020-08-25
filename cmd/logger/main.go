@@ -89,9 +89,10 @@ func run() error {
 						to_email,
 						etype,
 						status,
-						message
+						message,
+						queue_level
 					)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 				e.Time,
 				e.ID,
 				e.AccountID,
@@ -104,6 +105,7 @@ func run() error {
 				e.Etype,
 				e.Status,
 				e.Message,
+				e.QueueLevel,
 			)
 			if err != nil {
 				return err

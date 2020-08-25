@@ -61,6 +61,10 @@ func run() error {
 		return errors.New("ips and rdns should be of equal length")
 	}
 
+	if len(queue) == 0 {
+		return errors.New("must specify a queue")
+	}
+
 	if _, ok := smtp.Queues[queue]; !ok {
 		return errors.New("that queue does not exist")
 	}
@@ -88,7 +92,7 @@ func run() error {
 		return errors.WithMessage(err, "Hostname")
 	}
 
-	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConn, "emails", hostname+"smtpd")
+	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConn, queue, hostname+"smtpd")
 	if err != nil {
 		return errors.WithMessage(err, "createSubscriber emails")
 	}

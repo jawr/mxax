@@ -72,7 +72,7 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 			}
 
 		END:
-			// msg.Ack(false)
+			msg.Ack(false)
 			s.emailPool.Put(email)
 
 			<-tick

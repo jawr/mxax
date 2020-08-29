@@ -80,11 +80,11 @@ func run() error {
 	defer rabbitConn.Close()
 
 	// setup logs publisher
-	logPublisher, err := createPublisher(rabbitConn, "logs")
+	publisher, err := createPublisher(rabbitConn, "")
 	if err != nil {
-		return errors.WithMessage(err, "createPublisher logs")
+		return errors.WithMessage(err, "createPublisher")
 	}
-	defer logPublisher.Close()
+	defer publisher.Close()
 
 	// setup email subscriber
 	hostname, err := os.Hostname()
@@ -92,16 +92,22 @@ func run() error {
 		return errors.WithMessage(err, "Hostname")
 	}
 
-	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConn, queue, hostname+".smtpd")
+	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConn, queue, hostname+".sender")
 	if err != nil {
 		return errors.WithMessage(err, "createSubscriber emails")
 	}
 	defer emailSubscriber.Close()
 
+	bounceSubscriber, bounceSubscriberCh, err := createSubscriber(rabbitConn, queue, hostname+".sender")
+	if err != nil {
+		return errors.WithMessage(err, "createSubscriber bounces")
+	}
+	defer bounceSubscriber.Close()
+
 	log.Println("Connected to MQ...")
 
 	// create our sender
-	sndr, err := sender.NewSender(logPublisher, emailSubscriberCh)
+	sndr, err := sender.NewSender(publisher, emailSubscriberCh, bounceSubscriberCh)
 	if err != nil {
 		return errors.WithMessage(err, "NewSender")
 	}
@@ -155,6 +161,7 @@ func run() error {
 	sndr.Start()
 
 	if err := eg.Wait(); err != nil {
+		log.Printf("ERROR: %s", err)
 		return errors.WithMessage(err, "Wait")
 	}
 
@@ -165,6 +172,10 @@ func createSubscriber(conn *rabbitmq.Connection, queueName, name string) (*rabbi
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "subscriber.Channel")
+	}
+
+	if err := ch.Qos(1, 0, false); err != nil {
+		return nil, nil, errors.WithMessage(err, "Qos")
 	}
 
 	msgs, err := ch.Consume(

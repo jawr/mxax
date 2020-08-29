@@ -14,6 +14,19 @@ const (
 	EntryTypeBounce
 )
 
+func (e EntryType) String() string {
+	switch e {
+	case EntryTypeSend:
+		return "Send"
+	case EntryTypeReject:
+		return "Reject"
+	case EntryTypeBounce:
+		return "Bounce"
+	default:
+		return "Unknown"
+	}
+}
+
 type Entry struct {
 	Time time.Time
 
@@ -33,6 +46,7 @@ type Entry struct {
 	Etype EntryType
 
 	Status string
+	Bounce string
 
 	QueueLevel int
 

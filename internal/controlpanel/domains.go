@@ -170,10 +170,10 @@ func (s *Site) getDomain() (*route, error) {
 
 				_, err = regexp.Compile(rule)
 				if err != nil {
-					d.Errors.Add("rule", err.Error())
+					d.AliasFormErrors.Add("rule", err.Error())
 				}
 
-				if !d.Errors.Error() {
+				if !d.AliasFormErrors.Error() {
 
 					err = account.CreateAlias(
 						req.Context(),

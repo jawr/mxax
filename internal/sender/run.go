@@ -22,83 +22,100 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 	// TODO
 	// temp pace our deliveries, this will need much better logic
 	// to handle bounces
-	tick := time.Tick(time.Minute / 1)
+	tick := time.Tick(time.Minute)
 
+	// reused variables that allow us to goto
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("context done, closing: %s", ctx.Err())
 			return ctx.Err()
 
 		case msg := <-s.emailSubscriber:
+			log.Println("=== - msg")
+
 			start := time.Now()
 
 			email := s.emailPool.Get().(*smtp.Email)
 			email.Reset()
-
-			var err error
-			var reply string
 
 			if err := json.Unmarshal(msg.Body, email); err != nil {
 				log.Printf("Failed to unmarshal msg: %s", err)
 				goto END
 			}
 
-			reply, err = s.sendEmail(rdns, dialer, email)
-			if err != nil {
-				log.Printf("=== - %s - Bounced (%s -> %s -> %s) [%s] [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), reply, err)
-				email.Bounce = err.Error()
+			log.Printf(
+				"=== - %s - Unmarshalled %s -> %s -> %s",
+				email.ID,
+				email.From,
+				email.Via,
+				email.To,
+			)
+
+			email.Status, email.Error = s.sendEmail(rdns, dialer, email)
+			if email.Error != nil {
+				email.Bounce = email.Error.Error()
+				email.Etype = logger.EntryTypeBounce
+
+				s.publishBounce(email)
 			}
 
-			if len(email.Bounce) > 0 {
-				if err := s.handleBounce(email); err != nil {
-					log.Printf("=== - %s - Bounce Handler (%s -> %s -> %s) [%s] [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), reply, err)
-				}
-
-			} else {
-				log.Printf("=== - %s - Sent (%s -> %s -> %s) [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), reply)
-				s.publishLogEntry(logger.Entry{
-					ID:            email.ID,
-					AccountID:     email.AccountID,
-					DomainID:      email.DomainID,
-					AliasID:       email.AliasID,
-					DestinationID: email.DestinationID,
-					FromEmail:     email.From,
-					ViaEmail:      email.Via,
-					ToEmail:       email.To,
-					Status:        reply,
-					Etype:         logger.EntryTypeSend,
-					QueueLevel:    int(email.QueueLevel),
-				})
-			}
+			log.Printf(
+				"=== - %s - %s (%s -> %s -> %s) [%s] [status: %s] [bounce: %s]",
+				email.Etype.String(),
+				email.ID,
+				email.From,
+				email.Via,
+				email.To,
+				time.Since(start),
+				email.Status,
+				email.Bounce,
+			)
 
 		END:
-			msg.Ack(false)
+
+			log.Printf("=== - DBG - %s - pre s.publishLogEntry", email.ID)
+
+			s.publishLogEntry(logger.Entry{
+				ID:            email.ID,
+				AccountID:     email.AccountID,
+				DomainID:      email.DomainID,
+				AliasID:       email.AliasID,
+				DestinationID: email.DestinationID,
+				FromEmail:     email.From,
+				ViaEmail:      email.Via,
+				ToEmail:       email.To,
+				Status:        email.Status,
+				Bounce:        email.Bounce,
+				Etype:         email.Etype,
+				QueueLevel:    int(email.QueueLevel),
+			})
+
+			log.Printf("=== - DBG - %s - post s.publishLogEntry", email.ID)
+
+			if err := msg.Ack(false); err != nil {
+				log.Printf("=== - DBG - %s - ACK ERROR: %s", email.ID, err)
+			}
+
+			log.Println("=== - DBG - ack done")
+
 			s.emailPool.Put(email)
 
-			<-tick
+			log.Println("=== - DBG - pool put done")
+
+			select {
+			case <-ctx.Done():
+				log.Printf("inner ctx done: %s", ctx.Err())
+				return ctx.Err()
+
+			case <-tick:
+			}
+
+			log.Println("=== - DBG - tick done")
 		}
 	}
 
 	log.Println("Shutting down Run")
 
-	return nil
-}
-
-func (s *Sender) handleBounce(email *smtp.Email) error {
-	// detect what type of bounce this is
-	s.publishLogEntry(logger.Entry{
-		ID:            email.ID,
-		AccountID:     email.AccountID,
-		DomainID:      email.DomainID,
-		AliasID:       email.AliasID,
-		DestinationID: email.DestinationID,
-		FromEmail:     email.From,
-		ViaEmail:      email.Via,
-		ToEmail:       email.To,
-		Etype:         logger.EntryTypeBounce,
-		Status:        email.Bounce,
-		Message:       email.Message,
-		QueueLevel:    int(email.QueueLevel),
-	})
 	return nil
 }

@@ -6,19 +6,17 @@ import (
 	"log"
 	"time"
 
-	"github.com/jawr/mxax/internal/logger"
+	"github.com/jawr/mxax/internal/smtp"
 	"github.com/streadway/amqp"
 )
 
-func (s *Sender) publishLogEntry(entry logger.Entry) {
+func (s *Sender) publishBounce(email *smtp.Email) {
 	b := s.bufferPool.Get().(*bytes.Buffer)
 	defer s.bufferPool.Put(b)
 	b.Reset()
 
-	entry.Time = time.Now()
-
-	if err := json.NewEncoder(b).Encode(entry); err != nil {
-		log.Printf("Error publish entry encode: %s", err)
+	if err := json.NewEncoder(b).Encode(email); err != nil {
+		log.Printf("Error publish email encode: %s", err)
 		return
 	}
 
@@ -30,13 +28,14 @@ func (s *Sender) publishLogEntry(entry logger.Entry) {
 
 	err := s.publisher.Publish(
 		"",
-		"logs",
+		"bounces",
 		false, // mandatory
 		false, // immediate
 		msg,
 	)
+
 	if err != nil {
-		log.Printf("Error publish entry: %s", err)
+		log.Printf("Error publish bounce: %s", err)
 		return
 	}
 }

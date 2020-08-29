@@ -124,6 +124,10 @@ func createSubscriber(conn *rabbitmq.Connection, queueName, name string) (*rabbi
 		return nil, nil, errors.WithMessage(err, "subscriber.Channel")
 	}
 
+	if err := ch.Qos(1, 0, false); err != nil {
+		return nil, nil, errors.WithMessage(err, "Qos")
+	}
+
 	msgs, err := ch.Consume(
 		queueName,
 		name,

@@ -14,9 +14,10 @@ import (
 type Sender struct {
 	wait chan struct{}
 
-	logPublisher *rabbitmq.Channel
+	publisher *rabbitmq.Channel
 
-	emailSubscriber <-chan amqp.Delivery
+	emailSubscriber  <-chan amqp.Delivery
+	bounceSubscriber <-chan amqp.Delivery
 
 	// pools
 	emailPool  sync.Pool
@@ -26,17 +27,18 @@ type Sender struct {
 	cache *cache.Cache
 }
 
-func NewSender(logPublisher *rabbitmq.Channel, emailSubscriber <-chan amqp.Delivery) (*Sender, error) {
+func NewSender(publisher *rabbitmq.Channel, emailSubscriber, bounceSubscriber <-chan amqp.Delivery) (*Sender, error) {
 	cache, err := cache.NewCache()
 	if err != nil {
 		return nil, errors.WithMessage(err, "NewCache")
 	}
 
 	sender := &Sender{
-		wait:            make(chan struct{}, 0),
-		logPublisher:    logPublisher,
-		emailSubscriber: emailSubscriber,
-		cache:           cache,
+		wait:             make(chan struct{}, 0),
+		publisher:        publisher,
+		emailSubscriber:  emailSubscriber,
+		bounceSubscriber: bounceSubscriber,
+		cache:            cache,
 		emailPool: sync.Pool{
 			New: func() interface{} {
 				return new(smtp.Email)

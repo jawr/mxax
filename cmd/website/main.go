@@ -38,7 +38,7 @@ func run() error {
 	defer rabbitConn.Close()
 
 	// setup logs publisher
-	emailPublisher, err := createPublisher(rabbitConn, "emails")
+	emailPublisher, err := createPublisher(rabbitConn, "emails.straw")
 	if err != nil {
 		return errors.WithMessage(err, "createPublisher emails")
 	}

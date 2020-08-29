@@ -17,11 +17,11 @@ const (
 func (e EntryType) String() string {
 	switch e {
 	case EntryTypeSend:
-		return "Send"
+		return "SND"
 	case EntryTypeReject:
-		return "Reject"
+		return "REJ"
 	case EntryTypeBounce:
-		return "Bounce"
+		return "BNC"
 	default:
 		return "Unknown"
 	}

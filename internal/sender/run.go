@@ -3,6 +3,7 @@ package sender
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -19,6 +20,13 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 	case <-s.wait:
 	}
 
+	printf := func(format string, args ...interface{}) {
+		format = fmt.Sprintf("%s :: %s", rdns, format)
+		log.Printf(format, args...)
+	}
+
+	printf("Start")
+
 	// TODO
 	// temp pace our deliveries, this will need much better logic
 	// to handle bounces
@@ -28,24 +36,23 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("context done, closing: %s", ctx.Err())
 			return ctx.Err()
 
 		case msg := <-s.emailSubscriber:
-			log.Println("=== - msg")
-
 			start := time.Now()
 
 			email := s.emailPool.Get().(*smtp.Email)
 			email.Reset()
 
 			if err := json.Unmarshal(msg.Body, email); err != nil {
-				log.Printf("Failed to unmarshal msg: %s", err)
-				goto END
+				printf("Failed to unmarshal msg: %s", err)
+				// probably better to deadletter this
+				msg.Ack(false)
+				continue
 			}
 
-			log.Printf(
-				"=== - %s - Unmarshalled %s -> %s -> %s",
+			printf(
+				"TRY :: %s (%s -> %s -> %s)",
 				email.ID,
 				email.From,
 				email.Via,
@@ -60,8 +67,8 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 				s.publishBounce(email)
 			}
 
-			log.Printf(
-				"=== - %s - %s (%s -> %s -> %s) [%s] [status: %s] [bounce: %s]",
+			printf(
+				"%s :: %s (%s -> %s -> %s) [%s] [status: %s] [bounce: %s]",
 				email.Etype.String(),
 				email.ID,
 				email.From,
@@ -71,10 +78,6 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 				email.Status,
 				email.Bounce,
 			)
-
-		END:
-
-			log.Printf("=== - DBG - %s - pre s.publishLogEntry", email.ID)
 
 			s.publishLogEntry(logger.Entry{
 				ID:            email.ID,
@@ -91,31 +94,20 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 				QueueLevel:    int(email.QueueLevel),
 			})
 
-			log.Printf("=== - DBG - %s - post s.publishLogEntry", email.ID)
-
 			if err := msg.Ack(false); err != nil {
-				log.Printf("=== - DBG - %s - ACK ERROR: %s", email.ID, err)
+				printf("ERR :: %s :: ACK ERROR: %s", email.ID, err)
 			}
-
-			log.Println("=== - DBG - ack done")
 
 			s.emailPool.Put(email)
 
-			log.Println("=== - DBG - pool put done")
-
 			select {
 			case <-ctx.Done():
-				log.Printf("inner ctx done: %s", ctx.Err())
 				return ctx.Err()
 
 			case <-tick:
 			}
-
-			log.Println("=== - DBG - tick done")
 		}
 	}
-
-	log.Println("Shutting down Run")
 
 	return nil
 }

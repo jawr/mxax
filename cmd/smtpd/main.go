@@ -49,9 +49,9 @@ func run() error {
 	defer logPublisher.Close()
 
 	// setup email publisher
-	emailPublisher, err := createPublisher(rabbitConn, "emails")
+	emailPublisher, err := createPublisher(rabbitConn, "")
 	if err != nil {
-		return errors.WithMessage(err, "createPublisher emails")
+		return errors.WithMessage(err, "createPublisher")
 	}
 	defer emailPublisher.Close()
 

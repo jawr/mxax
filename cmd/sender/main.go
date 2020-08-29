@@ -45,9 +45,6 @@ func run() error {
 	flag.StringVar(&queue, "queue", "", "Name of the queue to subscribe to")
 	flag.Parse()
 
-	log.Println(ips)
-	log.Println(rdnss)
-
 	if flag.NFlag() == 0 {
 		flag.PrintDefaults()
 		return nil
@@ -73,14 +70,20 @@ func run() error {
 	defer cancel()
 
 	// setup rabbitmq connection
-	rabbitConn, err := rabbitmq.Dial(os.Getenv("MXAX_MQ_URL"))
+	rabbitConnIn, err := rabbitmq.Dial(os.Getenv("MXAX_MQ_URL"))
 	if err != nil {
 		return errors.WithMessage(err, "rabbitmq.Dial")
 	}
-	defer rabbitConn.Close()
+	defer rabbitConnIn.Close()
+
+	rabbitConnOut, err := rabbitmq.Dial(os.Getenv("MXAX_MQ_URL"))
+	if err != nil {
+		return errors.WithMessage(err, "rabbitmq.Dial")
+	}
+	defer rabbitConnOut.Close()
 
 	// setup logs publisher
-	publisher, err := createPublisher(rabbitConn, "")
+	publisher, err := createPublisher(rabbitConnOut, "")
 	if err != nil {
 		return errors.WithMessage(err, "createPublisher")
 	}
@@ -92,13 +95,13 @@ func run() error {
 		return errors.WithMessage(err, "Hostname")
 	}
 
-	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConn, queue, hostname+".sender")
+	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConnIn, queue, hostname+".sender")
 	if err != nil {
 		return errors.WithMessage(err, "createSubscriber emails")
 	}
 	defer emailSubscriber.Close()
 
-	bounceSubscriber, bounceSubscriberCh, err := createSubscriber(rabbitConn, queue, hostname+".sender")
+	bounceSubscriber, bounceSubscriberCh, err := createSubscriber(rabbitConnIn, "bounces", hostname+".sender")
 	if err != nil {
 		return errors.WithMessage(err, "createSubscriber bounces")
 	}

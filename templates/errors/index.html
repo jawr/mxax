@@ -1,8 +1,10 @@
 {{define "page"}}
-<section class="vh-100 baskerville">
-  <header class="tc ph5 lh-copy">
-    <h1 class="f4 f-headline-l code mb3 fw9 dib tracked-tight">{{.StatusCode}}</h1>
-    <h2 class="tc f3-l fw1">{{.Message}}</h2>
-  </header>
-</section>
+<div class="max-w-sm lg:flex m-auto bg-white shadow-md card-radius mt-20 p-4">
+  <div class="flex flex-col justify-between leading-normal">
+    <div class="prose">
+      <h1 class="text-lg">{{.StatusCode}}</h1>
+      <p>{{.Message}}</p>
+    </div>
+  </div>
+</div>
 {{end}}

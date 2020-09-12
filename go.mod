@@ -30,4 +30,5 @@ require (
 	github.com/stripe/stripe-go v70.15.0+incompatible
 	github.com/stripe/stripe-go/v71 v71.44.0
 	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 )

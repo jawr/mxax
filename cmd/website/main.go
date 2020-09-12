@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jawr/mxax/internal/website"
 	"github.com/pkg/errors"
 )
@@ -22,7 +22,7 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	db, err := pgx.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
+	db, err := pgxpool.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
 	if err != nil {
 		return errors.WithMessage(err, "pgx.Connect")
 	}

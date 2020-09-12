@@ -9,7 +9,7 @@ import (
 	"os/signal"
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jawr/mxax/internal/account"
 	"github.com/jawr/mxax/internal/cache"
 	"github.com/jawr/mxax/internal/logger"
@@ -31,7 +31,7 @@ func run() error {
 	defer cancel()
 
 	// setup  database connection
-	db, err := pgx.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
+	db, err := pgxpool.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
 	if err != nil {
 		return errors.WithMessage(err, "pgx.Connect")
 	}

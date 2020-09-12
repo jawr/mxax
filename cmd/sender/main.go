@@ -42,9 +42,6 @@ func run() error {
 	flag.Var(&rdnss, "rdns", "List of corresponding rdns. Order must match -ips.")
 	flag.Parse()
 
-	log.Println(ips)
-	log.Println(rdnss)
-
 	if flag.NFlag() == 0 {
 		flag.PrintDefaults()
 		return nil

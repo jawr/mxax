@@ -12,6 +12,7 @@ import (
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jawr/mxax/internal/sender"
+	"github.com/jawr/mxax/internal/smtp"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
 	"golang.org/x/sync/errgroup"
@@ -37,9 +38,11 @@ func (s *StringSliceFlags) Set(v string) error {
 
 func run() error {
 	var ips, rdnss StringSliceFlags
+	var queue string
 
 	flag.Var(&ips, "ips", "List of IP addresses to listen to. Order must match -rdns.")
 	flag.Var(&rdnss, "rdns", "List of corresponding rdns. Order must match -ips.")
+	flag.StringVar(&queue, "queue", "", "Name of the queue to subscribe to")
 	flag.Parse()
 
 	if flag.NFlag() == 0 {
@@ -55,22 +58,36 @@ func run() error {
 		return errors.New("ips and rdns should be of equal length")
 	}
 
+	if len(queue) == 0 {
+		return errors.New("must specify a queue")
+	}
+
+	if _, ok := smtp.Queues[queue]; !ok {
+		return errors.New("that queue does not exist")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// setup rabbitmq connection
-	rabbitConn, err := rabbitmq.Dial(os.Getenv("MXAX_MQ_URL"))
+	rabbitConnIn, err := rabbitmq.Dial(os.Getenv("MXAX_MQ_URL"))
 	if err != nil {
 		return errors.WithMessage(err, "rabbitmq.Dial")
 	}
-	defer rabbitConn.Close()
+	defer rabbitConnIn.Close()
+
+	rabbitConnOut, err := rabbitmq.Dial(os.Getenv("MXAX_MQ_URL"))
+	if err != nil {
+		return errors.WithMessage(err, "rabbitmq.Dial")
+	}
+	defer rabbitConnOut.Close()
 
 	// setup logs publisher
-	logPublisher, err := createPublisher(rabbitConn, "logs")
+	publisher, err := createPublisher(rabbitConnOut, "")
 	if err != nil {
-		return errors.WithMessage(err, "createPublisher logs")
+		return errors.WithMessage(err, "createPublisher")
 	}
-	defer logPublisher.Close()
+	defer publisher.Close()
 
 	// setup email subscriber
 	hostname, err := os.Hostname()
@@ -78,16 +95,22 @@ func run() error {
 		return errors.WithMessage(err, "Hostname")
 	}
 
-	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConn, "emails", hostname+"smtpd")
+	emailSubscriber, emailSubscriberCh, err := createSubscriber(rabbitConnIn, queue, hostname+".sender")
 	if err != nil {
 		return errors.WithMessage(err, "createSubscriber emails")
 	}
 	defer emailSubscriber.Close()
 
+	bounceSubscriber, bounceSubscriberCh, err := createSubscriber(rabbitConnIn, "bounces", hostname+".sender")
+	if err != nil {
+		return errors.WithMessage(err, "createSubscriber bounces")
+	}
+	defer bounceSubscriber.Close()
+
 	log.Println("Connected to MQ...")
 
 	// create our sender
-	sndr, err := sender.NewSender(logPublisher, emailSubscriberCh)
+	sndr, err := sender.NewSender(publisher, emailSubscriberCh, bounceSubscriberCh)
 	if err != nil {
 		return errors.WithMessage(err, "NewSender")
 	}
@@ -141,6 +164,7 @@ func run() error {
 	sndr.Start()
 
 	if err := eg.Wait(); err != nil {
+		log.Printf("ERROR: %s", err)
 		return errors.WithMessage(err, "Wait")
 	}
 
@@ -151,6 +175,10 @@ func createSubscriber(conn *rabbitmq.Connection, queueName, name string) (*rabbi
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "subscriber.Channel")
+	}
+
+	if err := ch.Qos(1, 0, false); err != nil {
+		return nil, nil, errors.WithMessage(err, "Qos")
 	}
 
 	msgs, err := ch.Consume(

@@ -10,6 +10,8 @@ import (
 
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jawr/mxax/internal/account"
+	"github.com/jawr/mxax/internal/cache"
 	"github.com/jawr/mxax/internal/logger"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
@@ -61,6 +63,13 @@ func run() error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 
+	cache, err := cache.NewCache()
+	if err != nil {
+		return nil, errors.WithMessage(err, "NewCache")
+	}
+
+	var logLevel account.LogLevel
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -71,6 +80,45 @@ func run() error {
 			var e logger.Entry
 			if err := json.Unmarshal(msg.Body, &e); err != nil {
 				return err
+			}
+
+			item, ok := cache.Get("loglevel", fmt.Sprintf("%s", e.AccountID))
+			if ok {
+				logLevel = *item.(*account.LogLevel)
+
+			} else {
+				_, err := db.QueryRow(
+					ctx,
+					"SELECT log_level FROM accounts WHERE account_id = $1",
+					e.AccountID,
+				).Scan(&logLevel)
+				if err != nil {
+					return err
+				}
+
+				cache.Set("loglevel", fmt.Sprintf("%s", e.AccountID), &logLevel)
+			}
+
+			// depending on log level decide on logging
+
+			if logLevel == account.LogLevelNone {
+				msg.Ack(false)
+				continue
+			}
+
+			if logLevel == account.LogLevelBounce && e.Etype != logger.EntryTypeBounce {
+				msg.Ack(false)
+				continue
+			}
+
+			if logLevel == account.LogLevelReject && e.Etype != logger.EntryTypeReject {
+				msg.Ack(false)
+				continue
+			}
+
+			if logLevel == account.LogLevelBounceAndReject && (e.Etype == logger.EntryTypeSend) {
+				msg.Ack(false)
+				continue
 			}
 
 			_, err := db.Exec(
@@ -89,9 +137,10 @@ func run() error {
 						to_email,
 						etype,
 						status,
-						message
+						message,
+						queue_level
 					)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 				e.Time,
 				e.ID,
 				e.AccountID,
@@ -104,6 +153,7 @@ func run() error {
 				e.Etype,
 				e.Status,
 				e.Message,
+				e.QueueLevel,
 			)
 			if err != nil {
 				return err
@@ -120,6 +170,10 @@ func createSubscriber(conn *rabbitmq.Connection, queueName, name string) (*rabbi
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "subscriber.Channel")
+	}
+
+	if err := ch.Qos(1, 0, false); err != nil {
+		return nil, nil, errors.WithMessage(err, "Qos")
 	}
 
 	msgs, err := ch.Consume(

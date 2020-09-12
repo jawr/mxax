@@ -34,7 +34,7 @@ func (s *Site) aclDomainCreateCheck(ctx context.Context, tx pgx.Tx) (bool, error
 		return false, err
 	}
 
-	if count > 0 {
+	if count >= 1 {
 		return false, nil
 	}
 
@@ -61,7 +61,7 @@ func (s *Site) aclDestinationCreateCheck(ctx context.Context, tx pgx.Tx) (bool, 
 		return false, err
 	}
 
-	if count > 0 {
+	if count >= 3 {
 		return false, nil
 	}
 
@@ -88,7 +88,7 @@ func (s *Site) aclAliasCreateCheck(ctx context.Context, tx pgx.Tx) (bool, error)
 		return false, err
 	}
 
-	if count > 0 {
+	if count >= 2 {
 		return false, nil
 	}
 

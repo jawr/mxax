@@ -2,6 +2,7 @@ package smtp
 
 import (
 	"github.com/google/uuid"
+	"github.com/jawr/mxax/internal/logger"
 )
 
 type Email struct {
@@ -12,12 +13,18 @@ type Email struct {
 	To         string
 	Message    []byte
 
+	QueueLevel QueueLevel
+
 	// for metrics
 	AccountID     int
 	DomainID      int
 	AliasID       int
 	DestinationID int
 
+	// internals for sender
+	Etype  logger.EntryType
+	Error  error
+	Status string
 	Bounce string
 }
 
@@ -33,4 +40,8 @@ func (e *Email) Reset() {
 	e.AliasID = 0
 	e.DestinationID = 0
 	e.Bounce = ""
+	e.Status = ""
+	e.Error = nil
+	e.QueueLevel = QueueLevelStraw
+	e.Etype = logger.EntryTypeSend
 }

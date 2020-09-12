@@ -10,6 +10,33 @@ import (
 	"github.com/streadway/amqp"
 )
 
+type QueueLevel int
+
+const (
+	QueueLevelStraw = iota
+	QueueLevelSticks
+	QueueLevelBricks
+)
+
+func (l QueueLevel) String() string {
+	switch l {
+	case QueueLevelStraw:
+		return "emails.straw"
+	case QueueLevelSticks:
+		return "emails.sticks"
+	case QueueLevelBricks:
+		return "emails.bricks"
+	default:
+		return "emails.failover"
+	}
+}
+
+var Queues = map[string]QueueLevel{
+	"emails.straw":  QueueLevelStraw,
+	"emails.sticks": QueueLevelSticks,
+	"emails.bricks": QueueLevelBricks,
+}
+
 func (s *Server) queueEmail(email Email) error {
 	b := s.bufferPool.Get().(*bytes.Buffer)
 	defer s.bufferPool.Put(b)
@@ -27,7 +54,7 @@ func (s *Server) queueEmail(email Email) error {
 
 	err := s.emailPublisher.Publish(
 		"",
-		"emails",
+		email.QueueLevel.String(),
 		false, // mandatory
 		false, // immediate
 		msg,
@@ -36,7 +63,7 @@ func (s *Server) queueEmail(email Email) error {
 		return errors.WithMessage(err, "Publish")
 	}
 
-	log.Printf("=== - %s - Queued", email.ID)
+	log.Printf("=== - %s - Queued to %s", email.ID, email.QueueLevel.String())
 
 	return nil
 }

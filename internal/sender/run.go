@@ -3,6 +3,7 @@ package sender
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -19,11 +20,19 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 	case <-s.wait:
 	}
 
+	printf := func(format string, args ...interface{}) {
+		format = fmt.Sprintf("%s :: %s", rdns, format)
+		log.Printf(format, args...)
+	}
+
+	printf("Start")
+
 	// TODO
 	// temp pace our deliveries, this will need much better logic
 	// to handle bounces
-	tick := time.Tick(time.Minute / 1)
+	tick := time.Tick(time.Minute)
 
+	// reused variables that allow us to goto
 	for {
 		select {
 		case <-ctx.Done():
@@ -35,60 +44,70 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 			email := s.emailPool.Get().(*smtp.Email)
 			email.Reset()
 
-			var err error
-			var reply string
-
 			if err := json.Unmarshal(msg.Body, email); err != nil {
-				log.Printf("Failed to unmarshal msg: %s", err)
-				goto END
+				printf("Failed to unmarshal msg: %s", err)
+				// probably better to deadletter this
+				msg.Ack(false)
+				continue
 			}
 
-			reply, err = s.sendEmail(rdns, dialer, email)
-			if err != nil {
-				log.Printf("=== - %s - Bounced (%s -> %s -> %s) [%s] [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), reply, err)
-				email.Bounce = err.Error()
+			printf(
+				"TRY :: %s (%s -> %s -> %s)",
+				email.ID,
+				email.From,
+				email.Via,
+				email.To,
+			)
+
+			email.Status, email.Error = s.sendEmail(rdns, dialer, email)
+			if email.Error != nil {
+				email.Bounce = email.Error.Error()
+				email.Etype = logger.EntryTypeBounce
+
+				s.publishBounce(email)
 			}
 
-			if len(email.Bounce) > 0 {
-				s.publishLogEntry(logger.Entry{
-					ID:            email.ID,
-					AccountID:     email.AccountID,
-					DomainID:      email.DomainID,
-					AliasID:       email.AliasID,
-					DestinationID: email.DestinationID,
-					FromEmail:     email.From,
-					ViaEmail:      email.Via,
-					ToEmail:       email.To,
-					Etype:         logger.EntryTypeBounce,
-					Status:        email.Bounce,
-					Message:       email.Message,
-				})
+			printf(
+				"%s :: %s (%s -> %s -> %s) [%s] [status: %s] [bounce: %s]",
+				email.Etype.String(),
+				email.ID,
+				email.From,
+				email.Via,
+				email.To,
+				time.Since(start),
+				email.Status,
+				email.Bounce,
+			)
 
-			} else {
-				log.Printf("=== - %s - Sent (%s -> %s -> %s) [%s]: %s", email.ID, email.From, email.Via, email.To, time.Since(start), reply)
-				s.publishLogEntry(logger.Entry{
-					ID:            email.ID,
-					AccountID:     email.AccountID,
-					DomainID:      email.DomainID,
-					AliasID:       email.AliasID,
-					DestinationID: email.DestinationID,
-					FromEmail:     email.From,
-					ViaEmail:      email.Via,
-					ToEmail:       email.To,
-					Status:        reply,
-					Etype:         logger.EntryTypeSend,
-				})
+			s.publishLogEntry(logger.Entry{
+				ID:            email.ID,
+				AccountID:     email.AccountID,
+				DomainID:      email.DomainID,
+				AliasID:       email.AliasID,
+				DestinationID: email.DestinationID,
+				FromEmail:     email.From,
+				ViaEmail:      email.Via,
+				ToEmail:       email.To,
+				Status:        email.Status,
+				Bounce:        email.Bounce,
+				Etype:         email.Etype,
+				QueueLevel:    int(email.QueueLevel),
+			})
+
+			if err := msg.Ack(false); err != nil {
+				printf("ERR :: %s :: ACK ERROR: %s", email.ID, err)
 			}
 
-		END:
-			// msg.Ack(false)
 			s.emailPool.Put(email)
 
-			<-tick
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+
+			case <-tick:
+			}
 		}
 	}
-
-	log.Println("Shutting down Run")
 
 	return nil
 }

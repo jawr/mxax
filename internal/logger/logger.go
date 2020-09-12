@@ -14,6 +14,19 @@ const (
 	EntryTypeBounce
 )
 
+func (e EntryType) String() string {
+	switch e {
+	case EntryTypeSend:
+		return "SND"
+	case EntryTypeReject:
+		return "REJ"
+	case EntryTypeBounce:
+		return "BNC"
+	default:
+		return "Unknown"
+	}
+}
+
 type Entry struct {
 	Time time.Time
 
@@ -33,6 +46,9 @@ type Entry struct {
 	Etype EntryType
 
 	Status string
+	Bounce string
+
+	QueueLevel int
 
 	// actual email message
 	Message []byte

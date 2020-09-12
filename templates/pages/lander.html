@@ -6,7 +6,7 @@
 		<!--Left Col-->
 		<div class="flex flex-col w-full md:w-3/5 justify-center items-start text-center md:text-left">
 			<h1 class="my-4 text-center md:text-left text-5xl font-bold leading-tight">It's Relay Easy!</h1>
-			<p class="leading-normal text-2xl mb-8">Create and manage Email routes for your personal Domains!</p>
+			<p class="leading-normal text-2xl mb-8">Send and receive emails using your domains</p>
 		
 			<a href="/register/free" class="mx-auto lg:mx-0 bg-blue-500 text-white font-bold rounded my-6 py-4 px-8 shadow-lg">Register</a>
 			
@@ -37,6 +37,34 @@
 </div>
 
 
+
+<section class="bg-white border-b py-8">
+	<div class="container max-w-5xl mx-auto m-8">
+		<h1 class="w-full my-2 text-5xl font-bold leading-tight text-center text-gray-800">But relay, what is it?</h1>
+		<div class="w-full mb-4">	
+			<div class="h-1 mx-auto gradient w-64 opacity-25 my-0 py-0 rounded-t"></div>
+		</div>
+	
+		<div class="flex flex-wrap">
+			<div class="w-full p-6">
+				<p class="text-gray-600 mb-8">MX allows you to send and receive emails using your domain names without having to change your existing email provider.</p>
+				<p class="text-gray-600 mb-8">Create powerful forwarding rules using regular expressions to decide where incomming mail should be sent to. This is perfect for isolating registration and transactional mail from your real email address; don't rely on third parties to provide correct unsubscribe flows, or respect your privacy!</p>
+        <p class="text-gray-600 mb-8">Getting started is relay <small>(last one, promise)</small> easy. First you verify ownership of your domain by creating a temporary, but unique CNAME record. Once verified we provide you with the following DNS records to configure in your registrar:</p>
+        
+        <ul class="prose m-auto text-gray-600 mb-8 list-disc">
+          <li><b>MX</b> - These records let mail sending agents know where to send your mail.</li>
+          <li><b>SPF</b> - This TXT record let mail receivers know what IP addresses are allowed to send mail on your behalf.</li>
+          <li><b>DKIM</b> - Every email sent from our system has it's headers and body signed. The recipient can then use this record to verify that the email is exactly as it was sent. This prevents tampering.</li>
+          <li><b>DMARC</b> - This is a policy record that lets email recipients know what to do if they receive mail that fails SPF or DKIM checks.</li>
+        </ul>
+
+        <p class="text-gray-600 mb-8">We never store any data that wouldn't be useful for you - that means we don't store IPs you logged in from, or IP's of MTA's that connect to our servers.</p>
+				
+			</div>
+		</div>
+		
+	</div>
+</section>
 
 <section class="bg-white border-b py-8">
 	<div class="container max-w-5xl mx-auto m-8">

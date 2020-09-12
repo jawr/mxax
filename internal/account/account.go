@@ -58,6 +58,10 @@ func (ll LogLevel) String() string {
 	}
 }
 
+func (ll LogLevel) Int() int {
+	return int(ll)
+}
+
 // Account represents a user of the service
 type Account struct {
 	ID int

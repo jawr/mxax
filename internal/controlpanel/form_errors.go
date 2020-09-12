@@ -34,3 +34,7 @@ func (f FormErrors) All() []string {
 	}
 	return all
 }
+
+func (f FormErrors) Clear() {
+	f.m = make(map[string]string, 0)
+}

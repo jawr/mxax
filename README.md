@@ -1,5 +1,5 @@
 # ma.ax
-easey peasey mail routing
+easey peasey mail routing: [mx.ax](https://mx.ax)
 
 ## TODO
 The following are needed before beta:

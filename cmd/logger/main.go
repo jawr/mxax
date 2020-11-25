@@ -65,7 +65,7 @@ func run() error {
 
 	cache, err := cache.NewCache()
 	if err != nil {
-		return nil, errors.WithMessage(err, "NewCache")
+		return errors.WithMessage(err, "NewCache")
 	}
 
 	var logLevel account.LogLevel
@@ -87,9 +87,9 @@ func run() error {
 				logLevel = *item.(*account.LogLevel)
 
 			} else {
-				_, err := db.QueryRow(
+				err := db.QueryRow(
 					ctx,
-					"SELECT log_level FROM accounts WHERE account_id = $1",
+					"SELECT log_level FROM accounts WHERE id = $1",
 					e.AccountID,
 				).Scan(&logLevel)
 				if err != nil {
@@ -98,6 +98,8 @@ func run() error {
 
 				cache.Set("loglevel", fmt.Sprintf("%s", e.AccountID), &logLevel)
 			}
+
+			log.Printf("LOGGER RECV %+v", e)
 
 			// depending on log level decide on logging
 

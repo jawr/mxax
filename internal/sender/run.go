@@ -61,7 +61,7 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 
 			email.Status, email.Error = s.sendEmail(rdns, dialer, email)
 			if email.Error != nil {
-				email.Bounce = email.Error.Error()
+				email.Status = email.Error.Error()
 				email.Etype = logger.EntryTypeBounce
 
 				s.publishBounce(email)
@@ -79,7 +79,7 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 				email.Bounce,
 			)
 
-			s.publishLogEntry(logger.Entry{
+			entry := logger.Entry{
 				ID:            email.ID,
 				AccountID:     email.AccountID,
 				DomainID:      email.DomainID,
@@ -89,10 +89,15 @@ func (s *Sender) Run(ctx context.Context, dialer net.Dialer, rdns string) error 
 				ViaEmail:      email.Via,
 				ToEmail:       email.To,
 				Status:        email.Status,
-				Bounce:        email.Bounce,
 				Etype:         email.Etype,
 				QueueLevel:    int(email.QueueLevel),
-			})
+			}
+
+			if entry.Etype != logger.EntryTypeSend {
+				entry.Message = email.Message
+			}
+
+			s.publishLogEntry(entry)
 
 			if err := msg.Ack(false); err != nil {
 				printf("ERR :: %s :: ACK ERROR: %s", email.ID, err)

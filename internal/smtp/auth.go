@@ -38,13 +38,17 @@ func (s *Server) Login(state *smtp.ConnectionState, email, password string) (smt
 		err = s.db.QueryRow(
 			context.Background(),
 			`
-			SELECT password FROM accounts WHERE email = $1
+			SELECT smtp_password FROM accounts WHERE email = $1
 			`,
 			email,
 		).Scan(&cachedPassword)
 		if err != nil {
 			s.cache.Set("login", email, struct{}{})
 			log.Printf("%s - auth failed with %s / %s (%s)", session, email, password, err)
+			return nil, errors.New("Not authorized")
+		}
+
+		if len(cachedPassword) == 0 {
 			return nil, errors.New("Not authorized")
 		}
 

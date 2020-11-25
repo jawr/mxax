@@ -63,9 +63,9 @@ func (e Entry) GetMessage() string {
 }
 
 func (e Entry) EncodeTime() string {
-	return e.Time.Format("20060102150405.000000")
+	return e.Time.Format("20060102150405.999999999-0700")
 }
 
 func (e Entry) DecodeTime(t string) (time.Time, error) {
-	return time.Parse("20060102150405.000000", t)
+	return time.Parse("20060102150405.999999999-0700", t)
 }

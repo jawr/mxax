@@ -2,10 +2,12 @@ package controlpanel
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
+	"github.com/jawr/mxax/internal/account"
 	"github.com/jawr/mxax/internal/logger"
 	"github.com/julienschmidt/httprouter"
 )
@@ -13,7 +15,7 @@ import (
 func (s *Site) getLog() (*route, error) {
 	r := &route{
 		path:    "/log",
-		methods: []string{"GET"},
+		methods: []string{"GET", "POST"},
 	}
 
 	// setup template
@@ -24,20 +26,64 @@ func (s *Site) getLog() (*route, error) {
 
 	// definte template data
 	type data struct {
-		Route string
+		Route     string
+		LogLevel  account.LogLevel
+		LogLevels []account.LogLevel
+		Entries   []logger.Entry
+		Form      FormErrors
+	}
 
-		Entries []logger.Entry
+	logLevels := []account.LogLevel{
+		account.LogLevelAll,
+		account.LogLevelBounceAndReject,
+		account.LogLevelBounce,
+		account.LogLevelReject,
+		account.LogLevelNone,
 	}
 
 	// actual handler
 	r.h = func(tx pgx.Tx, w http.ResponseWriter, req *http.Request, ps httprouter.Params) error {
 
 		d := data{
-			Route: "log",
+			Route:     "log",
+			LogLevels: logLevels,
+			Form:      newFormErrors(),
+		}
+
+		if req.Method == "POST" {
+
+			n, err := strconv.Atoi(req.FormValue("log-level"))
+			if err != nil {
+				return err
+			}
+
+			logLevel := account.LogLevel(n)
+			_, err = tx.Exec(
+				req.Context(),
+				`
+					UPDATE accounts SET log_level = $1
+					`,
+				logLevel,
+			)
+			if err != nil {
+				return err
+			}
+
+			d.Form.Clear()
+		}
+
+		err := tx.QueryRow(
+			req.Context(),
+			`
+			SELECT log_level FROM accounts
+			`,
+		).Scan(&d.LogLevel)
+		if err != nil {
+			return err
 		}
 
 		// get forward entries
-		err := pgxscan.Select(
+		err = pgxscan.Select(
 			req.Context(),
 			tx,
 			&d.Entries,

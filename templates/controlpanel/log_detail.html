@@ -25,12 +25,16 @@
             {{if .Entry.Status}}
             <li><b>Status</b> {{.Entry.Status}}</li>
             {{end}}
+            {{if .Entry.Bounce}}
+            <li><b>Status</b> {{.Entry.Bounce}}</li>
+            {{end}}
             <li><b>Logged At</b> {{.Entry.DateTime}}</li>
           </ul>
         </div>
       </div>
     </div>
 
+    {{if .Entry.Message}}
     <div class="col-span-1">
       <div>
         <h1 class="heading uppercase pl-2 pb-2 text-sm">Message</h1>
@@ -39,6 +43,8 @@
         <div class="h-auto p-4 whitespace-pre overflow-auto">{{.Entry.GetMessage}}</div>
       </div>
     </div>
+    {{end}}
+
   </div>
 </div>
 {{end}}

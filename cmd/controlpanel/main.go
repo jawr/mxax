@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jawr/mxax/internal/controlpanel"
 	"github.com/pkg/errors"
@@ -24,15 +23,15 @@ func run() error {
 
 	db, err := pgxpool.Connect(ctx, os.Getenv("MXAX_DB_URL"))
 	if err != nil {
-		return errors.WithMessage(err, "pgx.Connect")
+		return errors.WithMessage(err, "pgxpool.Connect")
 	}
 	defer db.Close(ctx)
 
 	log.Println("Connected to the Accounts Database")
 
-	adminDB, err := pgx.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
+	adminDB, err := pgxpool.Connect(ctx, os.Getenv("MXAX_ADMIN_DB_URL"))
 	if err != nil {
-		return errors.WithMessage(err, "pgx.Connect")
+		return errors.WithMessage(err, "pgxpool.Connect")
 	}
 	defer adminDB.Close(ctx)
 

@@ -12,14 +12,14 @@ import (
 
 	"github.com/dpapathanasiou/go-recaptcha"
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 	"github.com/stripe/stripe-go/v71"
 )
 
 type Site struct {
-	db         *pgx.Conn
+	db         *pgxpool.Pool
 	router     *httprouter.Router
 	bufferPool sync.Pool
 
@@ -30,7 +30,7 @@ type Site struct {
 	recaptchaPublicKey string
 }
 
-func NewSite(db *pgx.Conn, emailPublisher *rabbitmq.Channel) (*Site, error) {
+func NewSite(db *pgxpool.Pool, emailPublisher *rabbitmq.Channel) (*Site, error) {
 	stripe.Key = os.Getenv("MXAX_STRIPE_KEY")
 
 	s := &Site{

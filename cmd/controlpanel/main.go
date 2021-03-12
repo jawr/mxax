@@ -25,7 +25,7 @@ func run() error {
 	if err != nil {
 		return errors.WithMessage(err, "pgxpool.Connect")
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 
 	log.Println("Connected to the Accounts Database")
 
@@ -33,7 +33,7 @@ func run() error {
 	if err != nil {
 		return errors.WithMessage(err, "pgxpool.Connect")
 	}
-	defer adminDB.Close(ctx)
+	defer adminDB.Close()
 
 	log.Println("Connected to the Admin Database")
 

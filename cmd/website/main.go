@@ -26,7 +26,7 @@ func run() error {
 	if err != nil {
 		return errors.WithMessage(err, "pgx.Connect")
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 
 	log.Println("Connected to the Database")
 

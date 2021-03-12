@@ -60,9 +60,7 @@ func (s *Site) getLog() (*route, error) {
 			logLevel := account.LogLevel(n)
 			_, err = tx.Exec(
 				req.Context(),
-				`
-					UPDATE accounts SET log_level = $1
-					`,
+				`UPDATE accounts SET log_level = $1`,
 				logLevel,
 			)
 			if err != nil {

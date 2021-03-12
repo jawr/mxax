@@ -8,7 +8,7 @@ import (
 
 	"github.com/emersion/go-smtp"
 	"github.com/isayme/go-amqp-reconnect/rabbitmq"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jawr/mxax/internal/cache"
 	"github.com/pkg/errors"
 )
@@ -18,7 +18,7 @@ import (
 // database. Expected to have a load balancer
 // in front, i.e. HaProxy
 type Server struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 
 	// underlying smtp servers, one for :smtp (aka relay)
 	// one for :submission
@@ -38,7 +38,7 @@ type Server struct {
 
 // Create a new Server, currently only handles inbound
 // connections
-func NewServer(db *pgx.Conn, logPublisher, emailPublisher *rabbitmq.Channel) (*Server, error) {
+func NewServer(db *pgxpool.Pool, logPublisher, emailPublisher *rabbitmq.Channel) (*Server, error) {
 	cache, err := cache.NewCache()
 	if err != nil {
 		return nil, errors.WithMessage(err, "NewCache")

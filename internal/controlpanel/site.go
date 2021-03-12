@@ -10,16 +10,16 @@ import (
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 	"github.com/speps/go-hashids"
 )
 
 type Site struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 	// full access
-	adminDB *pgx.Conn
+	adminDB *pgxpool.Pool
 
 	router     *httprouter.Router
 	bufferPool sync.Pool
@@ -34,7 +34,7 @@ type Site struct {
 
 // eventually if we want to do lots of testing we might want
 // to swap out db for a bunch of interfaces for each route
-func NewSite(db, adminDB *pgx.Conn) (*Site, error) {
+func NewSite(db, adminDB *pgxpool.Pool) (*Site, error) {
 	// errorTemplate
 	errorTemplate, err := template.ParseFiles("templates/errors/index.html")
 	if err != nil {

@@ -163,7 +163,7 @@ func (s *Site) queueEmail(email smtp.Email) error {
 
 	err := s.emailPublisher.Publish(
 		"",
-		"emails",
+		"emails.straw",
 		false, // mandatory
 		false, // immediate
 		msg,

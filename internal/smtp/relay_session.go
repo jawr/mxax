@@ -1,6 +1,8 @@
 package smtp
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -8,6 +10,7 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/spf"
+	"github.com/Teamwork/spamc"
 	"github.com/emersion/go-smtp"
 	"github.com/google/uuid"
 	"github.com/jawr/mxax/internal/account"
@@ -16,13 +19,22 @@ import (
 )
 
 type RelaySession struct {
-	data *SessionData
+	data  *SessionData
+	spamc *spamc.Client
 }
 
 // initialise a new inbound session
 func (s *Server) newRelaySession(serverName string, state *smtp.ConnectionState) (*RelaySession, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
+		return nil, err
+	}
+
+	sc := spamc.New("127.0.0.1:783", &net.Dialer{
+		Timeout: 20 * time.Second,
+	})
+
+	if err := sc.Ping(context.Background()); err != nil {
 		return nil, err
 	}
 
@@ -34,6 +46,7 @@ func (s *Server) newRelaySession(serverName string, state *smtp.ConnectionState)
 			State:      state,
 			server:     s,
 		},
+		spamc: sc,
 	}
 
 	return &session, nil
@@ -163,6 +176,22 @@ func (s *RelaySession) Data(r io.Reader) error {
 	}
 
 	log.Printf("%s - Data - read %d bytes in %s", s, n, time.Since(start))
+
+	// check spamc
+	ctx := context.Background()
+
+	check, err := s.spamc.Check(ctx, bytes.NewReader(s.data.Message.Bytes()), nil)
+	if err != nil {
+		log.Printf("%s - Data - spamc.Check: %s", s, err)
+		return errors.Errorf("failure to check spamd (%s)", s)
+	}
+
+	log.Printf("%s - Data - SPAM Score %.2f (Is Spam %t)", s, check.Score, check.IsSpam)
+
+	if check.IsSpam {
+		log.Printf("%s - Data - SPAM detected", s)
+		return errors.Errorf("spam (%s)", s)
+	}
 
 	if s.data.returnPath {
 		if err := s.data.server.queueEmail(Email{

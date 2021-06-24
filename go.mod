@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	blitiri.com.ar/go/spf v1.1.0
+	github.com/Teamwork/spamc v0.0.0-20200109085853-a4e0c5c3f7a0
 	github.com/araddon/dateparse v0.0.0-20200409225146-d820a6159ab1
 	github.com/dgraph-io/badger v1.6.1
 	github.com/dgraph-io/badger/v2 v2.0.3
@@ -29,6 +30,7 @@ require (
 	github.com/streadway/amqp v1.0.0
 	github.com/stripe/stripe-go v70.15.0+incompatible
 	github.com/stripe/stripe-go/v71 v71.44.0
+	github.com/teamwork/utils v0.0.0-20210422143242-99315371ead6 // indirect
 	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 )
